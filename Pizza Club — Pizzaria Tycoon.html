@@ -1,0 +1,3428 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pizza Club — Pizzaria Tycoon</title>
+<style>
+  :root{
+    --red:#d62828;
+    --red-dark:#8f1616;
+    --yellow:#ffc93c;
+    --yellow-dark:#d99b00;
+    --green:#2f9e44;
+    --orange:#f4772e;
+    --blue:#2b6fb3;
+    --brown:#7a4a2b;
+    --brown-dark:#3d2211;
+    --cream:#fff2d6;
+    --ink:#1a0f08;
+    --panel:#fff7e4;
+  }
+  *{box-sizing:border-box; image-rendering:pixelated;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    font-family:'Courier New', 'Trebuchet MS', monospace;
+    background:#140b05;
+    overflow:hidden;
+    color:var(--ink);
+    -webkit-user-select:none;user-select:none;
+    touch-action:manipulation;
+  }
+  #game-root{
+    position:relative;
+    width:100vw;height:100vh;
+    display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(circle at 50% 15%, #3d2110 0%, #140b05 78%);
+  }
+  #stage{
+    position:relative;
+    width:960px;height:600px;
+    max-width:100vw;max-height:100vh;
+    background:#1a0f08;
+    box-shadow:
+      0 0 0 4px var(--ink),
+      0 0 0 8px var(--brown-dark),
+      0 0 0 12px var(--yellow),
+      0 0 0 16px var(--ink),
+      0 24px 64px rgba(0,0,0,.85);
+    image-rendering:pixelated;
+    overflow:hidden;
+  }
+  @media (max-aspect-ratio: 960/600){
+    #stage{ width:100vw; height:calc(100vw * 600 / 960); }
+  }
+  #game-canvas{
+    position:absolute; top:0; left:0;
+    width:100%; height:100%;
+    image-rendering:pixelated;
+    z-index:1;
+  }
+  #pizza-canvas{
+    position:relative;
+    display:block;
+    height:100%;
+    width:auto;
+    aspect-ratio:1 / 1;
+    max-width:100%;
+    max-height:100%;
+    image-rendering:pixelated;
+  }
+  .screen{
+    position:absolute; inset:0;
+    display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+    background:
+      linear-gradient(rgba(20,10,4,.58),rgba(20,10,4,.58)),
+      repeating-conic-gradient(#d99b78 0 25%, #e8b89a 0 50%) 0 0/48px 48px;
+    z-index:9;
+    padding:24px;
+  }
+  .screen.active{display:flex;}
+  #screen-start{
+    background:
+      linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,.28)),
+      repeating-linear-gradient(180deg,#c47f4f 0 20px,#efd2aa 20px 24px) top/100% 24% no-repeat,
+      repeating-linear-gradient(180deg,#7c4a33 0 40px,#5b3323 40px 42px) bottom/100% 76% no-repeat;
+  }
+  #screen-start::after{
+    content:""; position:absolute; left:0; right:0; bottom:0; height:60px;
+    background:repeating-conic-gradient(#c8242a 0 25%,#f4f0ea 0 50%) 0 0/48px 48px;
+    border-top:4px solid #1a0f08; pointer-events:none;
+  }
+  #start-pizza{
+    width:150px; height:150px; image-rendering:pixelated;
+    animation:bob 2.4s ease-in-out infinite;
+    filter:drop-shadow(3px 4px 0 rgba(0,0,0,.5));
+  }
+  .pixel-box{
+    background:var(--panel);
+    border:4px solid var(--ink);
+    box-shadow:
+      inset 0 0 0 3px #f7dfb0,
+      0 6px 0 var(--ink);
+  }
+  h1.title{
+    font-size:62px;
+    margin:0;
+    font-weight:900;
+    color:var(--yellow);
+    text-shadow:
+      4px 4px 0 var(--red-dark),
+      -3px -3px 0 var(--ink),
+      3px -3px 0 var(--ink),
+      -3px 3px 0 var(--ink),
+      3px 3px 0 var(--ink),
+      0 6px 0 var(--ink);
+    letter-spacing:3px;
+  }
+  h1.title .accent{
+    color:#fff;
+    text-shadow:
+      4px 4px 0 var(--red),
+      -3px -3px 0 var(--ink),
+      3px -3px 0 var(--ink),
+      -3px 3px 0 var(--ink),
+      3px 3px 0 var(--ink),
+      0 6px 0 var(--ink);
+  }
+  .subtitle{
+    color:var(--cream);
+    font-size:19px;
+    font-weight:700;
+    margin-top:8px;
+    text-shadow:2px 2px 0 var(--ink), -1px -1px 0 var(--ink);
+    letter-spacing:1px;
+  }
+  .deco-row{ display:flex; align-items:center; gap:18px; margin:26px 0; font-size:42px; }
+  .deco-row span{ filter:drop-shadow(2px 3px 0 rgba(0,0,0,.5)); animation:bob 2.4s ease-in-out infinite; }
+  .deco-row span:nth-child(2){ animation-delay:.3s; }
+  .deco-row span:nth-child(4){ animation-delay:.6s; }
+  .deco-row span:nth-child(5){ animation-delay:.9s; }
+  @keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+
+  .btn{
+    font-family:inherit;
+    font-weight:800;
+    font-size:15px;
+    color:#fff;
+    background:var(--red);
+    border:3px solid var(--ink);
+    box-shadow:inset 0 3px 0 rgba(255,255,255,.28), inset 0 -4px 0 var(--red-dark), 0 4px 0 var(--ink);
+    border-radius:4px;
+    padding:12px 22px;
+    cursor:pointer;
+    text-shadow:2px 2px 0 var(--ink);
+    letter-spacing:.5px;
+    transition:transform .06s steps(2);
+  }
+  .btn:hover:not(:disabled){ filter:brightness(1.08); }
+  .btn:active:not(:disabled){ transform:translateY(3px); box-shadow:inset 0 -1px 0 var(--red-dark), 0 1px 0 var(--ink);}
+  .btn:disabled{ background:#7a7a7a; box-shadow:inset 0 -4px 0 #4d4d4d, 0 4px 0 var(--ink); cursor:not-allowed; opacity:.75;}
+  .btn.secondary{ background:var(--blue); box-shadow:inset 0 3px 0 rgba(255,255,255,.25), inset 0 -4px 0 #184a78, 0 4px 0 var(--ink);}
+  .btn.dark{ background:#46423e; box-shadow:inset 0 3px 0 rgba(255,255,255,.18), inset 0 -4px 0 #24211e, 0 4px 0 var(--ink);}
+  .btn.green{ background:var(--green); box-shadow:inset 0 3px 0 rgba(255,255,255,.28), inset 0 -4px 0 #1b692b, 0 4px 0 var(--ink);}
+
+  .card-row{ display:flex; gap:34px; margin-top:20px; }
+  .char-card{
+    background:var(--panel);
+    border-radius:6px;
+    padding:16px 20px 20px;
+    width:205px;
+    cursor:pointer;
+    border:4px solid var(--ink);
+    box-shadow:inset 0 0 0 3px #f3d59b, 0 8px 0 var(--ink);
+    transition:transform .1s steps(2), box-shadow .1s steps(2);
+  }
+  .char-card:hover, .char-card.selected{
+    transform:translateY(-6px);
+    box-shadow:inset 0 0 0 4px var(--yellow), 0 12px 0 var(--ink), 0 0 0 4px var(--yellow);
+  }
+  .char-card canvas{ position:static; display:block; width:100%; height:156px; image-rendering:pixelated; }
+  .char-card h3{ margin:8px 0 4px; color:var(--red-dark); letter-spacing:1px; font-size:16px;}
+  .char-card p{ margin:0; font-size:12px; color:#4e3620; line-height:1.35; font-weight:700;}
+
+  #hud{
+    position:absolute; top:0; left:0; right:0;
+    z-index:4;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:7px 14px;
+    background:linear-gradient(180deg,#4a2813,#2b1508);
+    border-bottom:4px solid var(--ink);
+    box-shadow:inset 0 -3px 0 var(--yellow);
+    font-size:13px;
+    font-weight:800;
+    color:#fff;
+  }
+  #screen-complete{
+    z-index:11;
+    background:
+      radial-gradient(circle at 50% 35%, rgba(255,201,60,.25) 0%, rgba(20,10,4,.75) 75%),
+      repeating-conic-gradient(#d99b78 0 25%, #e8b89a 0 50%) 0 0/48px 48px;
+  }
+  #screen-complete h1.title{
+    animation: victoryTitle 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes victoryTitle{
+    0%{ transform:scale(1) rotate(-1.5deg); }
+    100%{ transform:scale(1.07) rotate(1.5deg); }
+  }
+  .trophy-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:18px;
+    margin:16px 0 8px;
+  }
+  .trophy-row .bounce-item{
+    font-size:44px;
+    filter:drop-shadow(3px 4px 0 var(--ink));
+    animation: victoryBounce 0.9s ease-in-out infinite alternate;
+  }
+  .trophy-row .bounce-item:nth-child(2){ animation-delay:0.15s; }
+  .trophy-row .bounce-item:nth-child(4){ animation-delay:0.3s; }
+  .trophy-row .bounce-item:nth-child(5){ animation-delay:0.45s; }
+  #complete-pizza{
+    width:116px;
+    height:116px;
+    image-rendering:pixelated;
+    filter:drop-shadow(4px 5px 0 var(--ink));
+    animation: pizzaSpinCelebrate 3.6s linear infinite;
+  }
+  @keyframes victoryBounce{
+    0%{ transform:translateY(0) scale(1); }
+    100%{ transform:translateY(-12px) scale(1.12); }
+  }
+  @keyframes pizzaSpinCelebrate{
+    0%{ transform:rotate(-8deg) scale(1); }
+    50%{ transform:rotate(8deg) scale(1.08); }
+    100%{ transform:rotate(-8deg) scale(1); }
+  }
+  #interact-hint{
+    position:absolute; z-index:6; display:none; pointer-events:none;
+    background:var(--ink); color:#ffd34a; border:3px solid var(--yellow); border-radius:4px;
+    padding:3px 8px; font-weight:900; font-size:12px; white-space:nowrap;
+    box-shadow:0 3px 0 rgba(0,0,0,.5);
+  }
+  #toast-layer{ position:absolute; inset:0; z-index:12; pointer-events:none; overflow:hidden;}
+  .toast{
+    position:absolute;
+    display:flex; align-items:center; gap:5px;
+    font-weight:900;
+    font-size:20px;
+    color:#fff;
+    text-shadow:2px 2px 0 var(--ink), -2px -2px 0 var(--ink), 2px -2px 0 var(--ink), -2px 2px 0 var(--ink);
+    animation:toastUp 1.15s steps(14) forwards;
+  }
+  @keyframes toastUp{
+    0%{opacity:0; transform:translateY(0) scale(.75);}
+    15%{opacity:1; transform:translateY(-12px) scale(1.05);}
+    100%{opacity:0; transform:translateY(-64px) scale(1);}
+  }
+
+  #banner{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  #msg-banner{
+    position:absolute; top:96px; left:50%; transform:translateX(-50%);
+    z-index:7;
+    background:var(--ink);
+    color:#fff;
+    padding:10px 22px;
+    border-radius:4px;
+    font-weight:800;
+    border:3px solid var(--yellow);
+    box-shadow:0 5px 0 rgba(0,0,0,.6);
+    display:none;
+  }
+  #msg-banner.show{ display:block; }
+  #msg-banner.err{ border-color:#ff4d4d; background:#3b0d0d; color:#ffe3e3; }
+  #msg-banner.ok{ border-color:#51cf66; background:#0f3318; color:#e6fcf5; }
+
+  #controls-mobile{
+    position:absolute; bottom:14px; left:14px; z-index:4;
+    display:none;
+    grid-template-columns:46px 46px 46px;
+    grid-template-rows:46px 46px 46px;
+    gap:4px;
+  }
+  #controls-mobile.show{ display:grid; }
+  #controls-mobile button{
+    background:var(--panel);
+    border:3px solid var(--ink);
+    box-shadow:0 3px 0 var(--ink);
+    border-radius:4px;
+    font-size:18px;
+    font-weight:900;
+    color:var(--ink);
+  }
+  #btn-up{grid-column:2;grid-row:1;} #btn-left{grid-column:1;grid-row:2;}
+  #btn-down{grid-column:2;grid-row:2;} #btn-right{grid-column:3;grid-row:2;}
+  #btn-e{
+    position:absolute; bottom:24px; right:20px; z-index:4;
+    width:64px;height:64px;border-radius:6px;
+    background:var(--red); color:#fff; border:4px solid var(--ink);
+    box-shadow:0 4px 0 var(--ink); font-weight:900; font-size:20px;
+    display:none;
+  }
+  #btn-e.show{display:block;}
+
+  /* Kitchen overlay - estética pixel art aconchegante */
+  #kitchen-ui{
+    position:absolute; inset:0; z-index:6;
+    display:none;
+    flex-direction:column;
+    background:
+      linear-gradient(rgba(28,14,6,.25),rgba(28,14,6,.25)),
+      repeating-conic-gradient(#d99b78 0 25%, #e8b89a 0 50%) 0 0/48px 48px;
+  }
+  #kitchen-ui.active{ display:flex; }
+  .kitchen-topbar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 16px;
+    background:linear-gradient(180deg,#4a2813,#2b1508);
+    border-bottom:4px solid var(--ink);
+    box-shadow:inset 0 -3px 0 var(--yellow);
+  }
+  .kitchen-body{
+    flex:1;
+    display:flex;
+    gap:12px;
+    padding:14px;
+  }
+  .kitchen-col{
+    background:var(--panel);
+    border:4px solid var(--ink);
+    box-shadow:inset 0 0 0 3px #f3d59b, 0 5px 0 var(--ink);
+    border-radius:6px;
+    padding:12px;
+  }
+  #ing-col{ width:205px; display:flex; flex-direction:column; gap:10px;}
+  .ing-btn{
+    display:flex; align-items:center; gap:9px;
+    font-family:inherit; font-weight:800; font-size:13px;
+    padding:10px 10px; border-radius:4px; cursor:pointer;
+    border:3px solid var(--ink);
+    box-shadow:0 3px 0 var(--ink);
+    background:#fff; color:var(--ink);
+    transition:transform .05s steps(2);
+  }
+  .ing-btn:active{ transform:translateY(2px); box-shadow:0 1px 0 var(--ink); }
+  .ing-btn.active-ing{ background:var(--yellow); box-shadow:inset 0 0 0 2px var(--red), 0 3px 0 var(--ink);}
+  #pizza-col{
+    flex:1;
+    min-width:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:space-between;
+    gap:10px;
+    padding:12px;
+  }
+  /* Bancada de madeira pixelada */
+  #bancada{
+    flex:1;
+    width:100%;
+    min-height:0;
+    display:flex; align-items:center; justify-content:center;
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,.04) 0 4px, transparent 4px 32px),
+      linear-gradient(180deg,#dfb578 0%,#c49352 72%,#9e7138 100%);
+    border:4px solid var(--ink);
+    border-radius:6px;
+    box-shadow:inset 0 6px 0 rgba(255,255,255,.3), inset 0 -8px 0 rgba(62,34,12,.35);
+    padding:10px;
+    overflow:hidden;
+  }
+  #kitchen-actions{ display:flex; gap:12px; flex-shrink:0; }
+  #order-col{ width:205px; }
+  #order-col h4{ margin:0 0 10px; color:var(--red-dark); border-bottom:2px dashed #c89d66; padding-bottom:6px;}
+  .order-check{ font-size:14px; padding:5px 0; font-weight:800;}
+  .order-check.ok{ color:var(--green); }
+  .order-check.no{ color:#8a7f75; }
+
+  /* Shop */
+  #shop-panel{
+    background:var(--panel);
+    border:4px solid var(--ink);
+    box-shadow:inset 0 0 0 4px #f3d59b, 0 10px 0 var(--ink);
+    border-radius:8px;
+    padding:24px 32px;
+    width:430px;
+  }
+  #shop-panel h2{ margin-top:0; color:var(--red-dark); font-size:19px;}
+  .shop-row{ display:flex; justify-content:space-between; align-items:center; margin:10px 0; font-size:15px; font-weight:700;}
+  .shop-ing-visual{ font-size:54px; margin:10px 0; filter:drop-shadow(3px 3px 0 rgba(0,0,0,.25));}
+
+  footer.credit{ position:absolute; bottom:6px; right:10px; font-size:10px; font-weight:700; color:rgba(255,255,255,.55); text-shadow:1px 1px 0 #000; z-index:2;}
+  #audio-toggle{
+    position:absolute; top:48px; right:12px; z-index:8;
+    background:#2b1508; color:var(--yellow); border:3px solid var(--ink);
+    box-shadow:0 3px 0 var(--ink);
+    border-radius:4px; padding:5px 11px; font-family:inherit; font-weight:800; font-size:12px; cursor:pointer;
+  }
+
+  #pause-overlay{
+    position:absolute; inset:0; z-index:15;
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(15,8,3,.85); color:#fff; text-align:center; gap:12px;
+    font-size:34px; font-weight:900; letter-spacing:2px;
+  }
+  #pause-overlay.show{ display:flex; }
+  #pause-overlay .pause-sub{ font-size:14px; font-weight:700; color:var(--yellow); max-width:520px; }
+
+  /* ===== animações de abertura e de vitória ===== */
+  #start-anim{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; image-rendering:pixelated; }
+  #screen-start > *:not(#start-anim){ position:relative; z-index:1; }
+  .ltr{ display:inline-block; animation:ltrWave 1.5s ease-in-out infinite; }
+  @keyframes ltrWave{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-9px); } }
+  #start-pizza{ animation:pizzaHop 1.6s ease-in-out infinite; }
+  @keyframes pizzaHop{ 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-12px) scale(1.06); } }
+  #screen-complete{ padding:0; justify-content:flex-end; background:#171332; }
+  #victory-canvas{ position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; }
+  #victory-ui{
+    position:relative; z-index:2; margin-bottom:22px; width:min(640px,92%);
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    padding:8px 18px 10px;
+    background:rgba(15,10,34,.8); border:4px solid #1fa8d4;
+    box-shadow:inset 0 0 0 2px #7fc12a, 0 6px 0 rgba(0,0,0,.45);
+    animation:vicUi .6s ease-out 1.8s both;
+  }
+  #victory-ui .victory-row{ display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap; }
+  #victory-ui .victory-msg{ color:#fff; font-size:19px; font-weight:900; text-shadow:2px 2px 0 #e8508a; }
+  #victory-ui #final-score{ color:#ffd34a; font-size:18px; font-weight:800; margin:0; text-shadow:2px 2px 0 #000; }
+  @keyframes vicUi{ 0%{ opacity:0; transform:translateY(24px); } 100%{ opacity:1; transform:translateY(0); } }
+
+  #shop-panel{width:900px;max-width:96%;padding:14px 20px 16px;}
+  #shop-panel h2{margin:0 0 4px;font-size:18px;}
+  .shop-wallet{font-weight:800;font-size:15px;margin-bottom:8px;}
+  #shop-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;}
+  .shop-card{background:#fff;border:3px solid var(--ink);box-shadow:0 3px 0 var(--ink);border-radius:4px;padding:6px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;}
+  .shop-card .se{font-size:28px;} .shop-card .sn{font-weight:900;font-size:12px;color:var(--red-dark);}
+  .shop-card .sd{font-size:10px;font-weight:700;color:#4e3620;min-height:26px;line-height:1.2;}
+  .shop-card .btn{font-size:11px;padding:6px 8px;} .shop-card.owned{background:#e6fcf5;}
+  .shop-tag{font-size:9px;font-weight:900;color:var(--blue);letter-spacing:1px;}
+  #ing-col{gap:6px;} #ing-col h4{margin:2px 0;} .ing-btn{padding:6px 9px;} .ing-btn.drink{background:#e8f4ff;}
+</style>
+</head>
+<body>
+<div id="game-root">
+  <div id="stage">
+
+    <canvas id="game-canvas" width="960" height="600"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" style="display:none;">
+      <div class="hud-item"><span class="hud-label">FASE</span> <span id="hud-phase">1</span></div>
+      <div class="hud-item"><span class="hud-label">⏱</span> <span id="hud-timer">00:50</span></div>
+      <div class="hud-item">
+        <canvas id="hud-coin-icon" width="16" height="16"></canvas>
+        <span id="hud-money">Dinheiro: $0 / Mínimo: $20</span>
+      </div>
+      <div class="hud-item" id="hearts"></div>
+    </div>
+
+    <div id="banner"></div>
+    <div id="interact-hint">[E] Atender cliente</div>
+    <div id="toast-layer"></div>
+    <div id="msg-banner"></div>
+
+    <div id="controls-mobile">
+      <button id="btn-up">▲</button>
+      <button id="btn-left">◀</button>
+      <button id="btn-down">▼</button>
+      <button id="btn-right">▶</button>
+    </div>
+    <button id="btn-e">E</button>
+
+    <button id="audio-toggle">🔊 Som: ON</button>
+    <div id="pause-overlay">
+      <div>⏸ PAUSADO</div>
+      <div class="pause-sub">Pressione ESC para continuar</div>
+    </div>
+
+    <!-- Kitchen UI -->
+    <div id="kitchen-ui">
+      <div class="kitchen-topbar">
+        <button class="btn dark" id="btn-back-service">← Voltar para Atendimento</button>
+        <div style="color:#fff;font-weight:800;">🍳 COZINHA — FASE <span id="k-phase">1</span></div>
+        <div style="color:#fff;font-weight:800;display:flex;align-items:center;gap:8px;">
+          <span>⏱ <span id="k-timer">00:50</span></span>
+          <span style="display:inline-flex;align-items:center;gap:4px;"><canvas id="k-coin-icon" width="16" height="16"></canvas><span id="k-money">$0</span></span>
+        </div>
+      </div>
+      <div class="kitchen-body">
+        <div class="kitchen-col" id="ing-col">
+          <h4 style="margin-top:0;color:var(--red-dark);">INGREDIENTES</h4>
+        </div>
+        <div class="kitchen-col" id="pizza-col">
+          <div id="bancada">
+            <canvas id="pizza-canvas" width="280" height="280"></canvas>
+          </div>
+          <div id="kitchen-actions">
+            <button class="btn green" id="btn-pronto">✔ PRONTO!</button>
+            <button class="btn dark" id="btn-descartar">🗑 Limpar Pizza</button>
+          </div>
+        </div>
+        <div class="kitchen-col" id="order-col">
+          <h4>PEDIDO ATUAL</h4>
+          <div id="order-checklist"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screens -->
+    <div class="screen active" id="screen-start">
+      <canvas id="start-anim" width="960" height="600"></canvas>
+      <h1 class="title"><span class="accent">Pizza</span> Club</h1>
+      <div class="subtitle">PIZZARIA TYCOON</div>
+      <div class="deco-row"><span>🧀</span><span>🍅</span><canvas id="start-pizza" width="70" height="70"></canvas><span>🌶️</span><span>🫒</span></div>
+    </div>
+
+    <div class="screen" id="screen-charselect">
+      <h1 class="title" style="font-size:34px;">Escolha seu Funcionário</h1>
+      <div class="card-row">
+        <div class="char-card" id="card-male">
+          <canvas width="144" height="156"></canvas>
+          <h3>FUNCIONÁRIO</h3>
+          <p>Boné vermelho, avental e muita energia para o balcão.</p>
+        </div>
+        <div class="char-card" id="card-female">
+          <canvas width="144" height="156"></canvas>
+          <h3>FUNCIONÁRIA</h3>
+          <p>Rabo de cavalo, boné vermelho e a mais rápida da cozinha.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen-shop">
+      <div id="shop-panel">
+        <h2 id="shop-title">LOJA</h2>
+        <div class="shop-wallet">💰 Carteira: <strong id="shop-avail">$0</strong> <span style="font-weight:700;font-size:12px;color:#4e3620;">— tudo é opcional, gaste como quiser!</span></div>
+        <div id="shop-grid"></div>
+        <div style="display:flex;justify-content:center;margin-top:14px;"><button class="btn green" id="btn-start-phase">Iniciar Fase</button></div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen-phase-complete">
+      <h1 class="title" style="font-size:38px;">🎉</h1>
+      <div class="subtitle" style="font-size:24px; color:#fff;">Parabéns você passou de fase!</div>
+      <div class="subtitle" id="pc-score" style="margin-top:12px;"></div>
+      <button class="btn" style="margin-top:26px;" id="btn-pc-continue">Continuar</button>
+    </div>
+
+    <div class="screen" id="screen-lose">
+      <h1 class="title" style="font-size:34px;">😵</h1>
+      <div class="subtitle" style="font-size:22px; color:#fff;">Ops, você errou, tente novamente.</div>
+      <button class="btn" style="margin-top:26px;" id="btn-retry">Tentar novamente</button>
+    </div>
+
+    <div class="screen" id="screen-complete">
+      <canvas id="victory-canvas" width="960" height="600"></canvas>
+      <div id="victory-ui">
+        <div class="victory-msg">Parabéns! Você completou todas as fases.</div>
+        <div class="victory-row">
+          <div id="final-score"></div>
+          <button class="btn green" id="btn-play-again">Jogar novamente</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="credit">Pizza Club — Pizzaria Tycoon</footer>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   GAME CONFIG (Sistema de dados das fases)
+========================================================= */
+const PHASES = {
+  1:{ time:90,  minimumScore:40,  attempts:3 },
+  2:{ time:100, minimumScore:65,  attempts:3 },
+  3:{ time:120, minimumScore:95, attempts:3 },
+  4:{ time:140, minimumScore:125, attempts:3 },
+  5:{ time:150, minimumScore:160, attempts:3 },
+  6:{ time:180, minimumScore:200, attempts:3 }
+};
+const PHASE_COUNT = 6;
+const PIZZA_KEYS=["molho","queijo","calabresa","azeitona"], DRINK_KEYS=["refri","suco","milkshake"], ALL_KEYS=PIZZA_KEYS.concat(DRINK_KEYS);
+const ING_INFO = {
+  molho:     {label:"MOLHO",     emoji:"🍅", color:"#c92a2a", price:0},
+  queijo:    {label:"QUEIJO",    emoji:"🧀", color:"#ffd43b", price:3},
+  calabresa: {label:"CALABRESA", emoji:"🌶️", color:"#a6321f", price:4},
+  azeitona:  {label:"AZEITONA",  emoji:"🫒", color:"#3d7a3d", price:3},
+  refri:     {label:"REFRI",     emoji:"🥤", color:"#c92a2a", price:4, drink:true, cup:"#c92a2a"},
+  suco:      {label:"SUCO",      emoji:"🧃", color:"#f08a3c", price:5, drink:true, cup:"#f08a3c"},
+  milkshake: {label:"MILKSHAKE", emoji:"🥛", color:"#e8508a", price:8, drink:true, cup:"#f2a0c0"}
+};
+const SHOP = [
+  {id:"queijo",type:"ing",name:"Queijo",emoji:"🧀",price:15,desc:"Novo ingrediente. Pizza paga +$5"},
+  {id:"calabresa",type:"ing",name:"Calabresa",emoji:"🌶️",price:25,desc:"Novo ingrediente. Pizza paga +$5"},
+  {id:"azeitona",type:"ing",name:"Azeitona",emoji:"🫒",price:22,desc:"Novo ingrediente. Pizza paga +$5"},
+  {id:"suco",type:"drink",name:"Suco",emoji:"🧃",price:18,desc:"Nova bebida. Paga +$6"},
+  {id:"milkshake",type:"drink",name:"Milkshake",emoji:"🥛",price:30,desc:"Nova bebida. Paga +$6"},
+  {id:"speed",type:"up",name:"Tênis Turbo",emoji:"👟",price:20,max:3,desc:"+15% de velocidade"},
+  {id:"time",type:"up",name:"Relógio Extra",emoji:"⏰",price:25,max:3,desc:"+15s em cada fase"},
+  {id:"life",type:"up",name:"Seguro de Erros",emoji:"❤️",price:35,max:2,desc:"+1 tentativa por fase"},
+  {id:"tip",type:"up",name:"Cardápio Premium",emoji:"📜",price:30,max:3,desc:"+$2 em todo pedido"},
+  {id:"ads",type:"up",name:"Propaganda",emoji:"📣",price:28,max:2,desc:"Clientes chegam mais rápido"},
+  {id:"emp",type:"emp",name:"Ajudante",emoji:"🧑‍🍳",price:60,desc:"Contratar $60 + $12 por minuto. Faz tudo, só que bem devagar"}
+];
+
+/* =========================================================
+/* =========================================================
+   GLOBAL STATE (GameManager)
+========================================================= */
+const G = {
+  state:"START",
+  character:"male",
+  phase:1,
+  unlocked:["molho"],
+  score:0,
+  money:0,
+  attempts:3,
+  ordersDelivered:0,
+  currentOrder:null,
+  timeLeft:0,
+  timerHandle:null,
+  playerState:"IDLE",
+  carryingPizza:false,
+  soundOn:true,
+  pendingMoneyForShop:0,
+  keys:{up:false,down:false,left:false,right:false},
+  a11y:{ narrator:false },
+  paused:false,
+  charSelectIndex:0,
+  firstPlay:true,
+  totalScore:0, up:{speed:0,time:0,life:0,tip:0,ads:0}, rushLeft:0, rushAt:0, walletStart:0, maxAttempts:3, nextPhase:2, emp:{hired:false,acc:0},
+  alertedMinute:false, alerted30:false, alerted10:false,
+};
+
+/* =========================================================
+   AUDIO ENGINE (WebAudio Chiptune & Retro SFX)
+   Sons completos para entrega certa, pedido errado, moeda,
+   passos, ingredientes, forno, vitória, derrota e música de fundo.
+========================================================= */
+let audioCtx = null;
+
+function ensureAudio(){
+  if(!G.soundOn) return null;
+  try{
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if(audioCtx.state === "suspended"){
+      audioCtx.resume();
+    }
+    startBGM();
+    return audioCtx;
+  }catch(e){
+    return null;
+  }
+}
+
+/* =========================================================
+   TRILHA SONORA AMBIENTE CALMA E TRANQUILA (Pizzaria Aconchegante)
+   Melodia suave e lenta em ondas senoidais com acordes quentes,
+   tocando continuamente durante todo o jogo sem cansar.
+========================================================= */
+const BGM = {
+  timer: null,
+  step: 0,
+  // Melodia calma e doce em Dó Maior / Lá Menor (andamento tranquilo)
+  melody: [
+    523.25, 0, 659.25, 0, 587.33, 0, 493.88, 0,
+    523.25, 0, 0,      0, 392.00, 0, 0,      0,
+    440.00, 0, 523.25, 0, 493.88, 0, 392.00, 0,
+    440.00, 0, 0,      0, 349.23, 0, 0,      0,
+    392.00, 0, 493.88, 0, 523.25, 0, 587.33, 0,
+    659.25, 0, 587.33, 0, 523.25, 0, 493.88, 0,
+    440.00, 0, 392.00, 0, 493.88, 0, 587.33, 0,
+    523.25, 0, 0,      0, 0,      0, 0,      0
+  ],
+  // Acompanhamento harmônico suave (notas graves longas e quentes)
+  pad: [
+    261.63, 0, 329.63, 0, 261.63, 0, 329.63, 0,
+    246.94, 0, 293.66, 0, 246.94, 0, 293.66, 0,
+    220.00, 0, 261.63, 0, 220.00, 0, 261.63, 0,
+    174.61, 0, 220.00, 0, 174.61, 0, 220.00, 0,
+    196.00, 0, 246.94, 0, 196.00, 0, 246.94, 0,
+    220.00, 0, 261.63, 0, 220.00, 0, 261.63, 0,
+    174.61, 0, 220.00, 0, 196.00, 0, 246.94, 0,
+    261.63, 0, 329.63, 0, 261.63, 0, 0,      0
+  ]
+};
+
+function playCalmNote(freq, dur, vol){
+  if(!audioCtx || !G.soundOn) return;
+  try{
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, now);
+
+    // Ataque e decaimento bem suaves (estilo piano elétrico / caixinha de música)
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + dur + 0.05);
+  }catch(e){}
+}
+
+function tickBGM(){
+  if(!G.soundOn || !audioCtx || audioCtx.state !== "running") return;
+  if(G.paused || G.state === "COMPLETE") return;
+
+  const idx = BGM.step % BGM.melody.length;
+  const mFreq = BGM.melody[idx];
+  const pFreq = BGM.pad[idx];
+
+  // Abaixa o volume suavemente se o narrador estiver falando
+  const duck = narratorSpeaking ? 0.3 : 1.0;
+
+  if(mFreq > 0){
+    playCalmNote(mFreq, 0.72, 0.28 * duck);
+  }
+  if(pFreq > 0){
+    playCalmNote(pFreq, 0.85, 0.22 * duck);
+  }
+  BGM.step++;
+}
+
+function startBGM(){
+  if(BGM.timer) return;
+  tickBGM();
+  BGM.timer = setInterval(tickBGM, 340);
+}
+
+function stopBGM(){
+  if(BGM.timer){
+    clearInterval(BGM.timer);
+    BGM.timer = null;
+  }
+}
+
+function playTone(freq, startOffset, duration, type, volume, slideTo){
+  const ctxA = ensureAudio();
+  if(!ctxA) return;
+  try{
+    const now = ctxA.currentTime + (startOffset || 0);
+    const osc = ctxA.createOscillator();
+    const gain = ctxA.createGain();
+    osc.type = type || "square";
+    osc.frequency.setValueAtTime(freq, now);
+    if(slideTo){
+      osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), now + duration);
+    }
+    const vol = (volume || 0.08) * 1.45;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc.connect(gain);
+    gain.connect(ctxA.destination);
+    osc.start(now);
+    osc.stop(now + duration + 0.02);
+  }catch(e){}
+}
+
+const SFX = {
+  // Clique retrô de botão/menu
+  click: ()=>{
+    playTone(520, 0, 0.06, "square", 0.06, 660);
+  },
+
+  // Passo suave pixelado enquanto caminha
+  step: ()=>{
+    playTone(130 + Math.random()*25, 0, 0.04, "triangle", 0.03, 90);
+  },
+
+  // Som de moeda dourada ("ca-ching" 16-bit)
+  coin: ()=>{
+    playTone(987.77, 0.00, 0.08, "square", 0.08);   // B5
+    playTone(1318.51, 0.07, 0.22, "square", 0.09);  // E6
+  },
+
+  // Compra desbloqueada na loja
+  buy: ()=>{
+    playTone(523.25, 0.00, 0.08, "square", 0.08);
+    playTone(659.25, 0.08, 0.08, "square", 0.08);
+    playTone(987.77, 0.16, 0.08, "square", 0.08);
+    playTone(1318.51, 0.24, 0.22, "square", 0.09);
+  },
+
+  // Cliente fazendo pedido (campainha do balcão)
+  order: ()=>{
+    playTone(587.33, 0.00, 0.09, "triangle", 0.09); // D5
+    playTone(880.00, 0.09, 0.16, "triangle", 0.09); // A5
+  },
+
+  // Cliente entrando na pizzaria (sininho da porta)
+  bell: ()=>{
+    playTone(1318.51, 0.00, 0.14, "sine", 0.06);
+    playTone(1046.50, 0.12, 0.26, "sine", 0.06);
+  },
+
+  // Voz do cliente falando (blip de texto)
+  blip: ()=>{
+    playTone(300 + Math.random()*90, 0, 0.03, "square", 0.025);
+  },
+
+  // Cliente mordendo a pizza
+  munch: ()=>{
+    playTone(190 + Math.random()*40, 0, 0.06, "square", 0.05, 90);
+    playTone(150 + Math.random()*30, 0.06, 0.05, "triangle", 0.04, 80);
+  },
+
+  // Colocando ingrediente na massa
+  place: ()=>{
+    playTone(280, 0.00, 0.05, "triangle", 0.08, 420);
+  },
+
+  // Pizza certa pronta na cozinha
+  ready: ()=>{
+    playTone(659.25, 0.00, 0.08, "triangle", 0.08);
+    playTone(880.00, 0.08, 0.16, "triangle", 0.09);
+  },
+
+  // ENTREGA CERTA: Fanfarra alegre de 4 notas + som brilhante de moeda
+  deliverSuccess: ()=>{
+    playTone(523.25, 0.00, 0.08, "square", 0.09);   // C5
+    playTone(659.25, 0.08, 0.08, "square", 0.09);   // E5
+    playTone(783.99, 0.16, 0.08, "square", 0.09);   // G5
+    playTone(1046.50,0.24, 0.22, "square", 0.10);   // C6
+    playTone(987.77, 0.34, 0.08, "triangle", 0.08); // B5
+    playTone(1318.51,0.41, 0.24, "triangle", 0.09); // E6
+  },
+
+  // PEDIDO ERRADO: Efeito sonoro estilo "wah-wah" / erro cômico retrô descendente
+  deliverWrong: ()=>{
+    playTone(349.23, 0.00, 0.14, "triangle", 0.11, 329.63); // F4 -> E4
+    playTone(329.63, 0.14, 0.14, "triangle", 0.11, 311.13); // E4 -> Eb4
+    playTone(311.13, 0.28, 0.16, "triangle", 0.11, 293.66); // Eb4 -> D4
+    playTone(293.66, 0.44, 0.38, "sawtooth", 0.09, 220.00); // D4 -> A3 (queda final)
+    playTone(146.83, 0.44, 0.38, "triangle", 0.10, 110.00); // D3 -> A2 (grave de apoio)
+  },
+
+  // Alias para compatibilidade
+  error: ()=>{
+    SFX.deliverWrong();
+  },
+  deliver: ()=>{
+    SFX.deliverSuccess();
+  },
+
+  // Vitória de fase
+  win: ()=>{
+    const notes = [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50];
+    const times = [0.00, 0.11, 0.22, 0.33, 0.48, 0.60];
+    const durs  = [0.10, 0.10, 0.10, 0.13, 0.10, 0.32];
+    notes.forEach((f,i)=> playTone(f, times[i], durs[i], "square", 0.09));
+  },
+
+  // Grande Final do Jogo (fanfarra épica de conclusão com acorde brilhante)
+  gameComplete: ()=>{
+    stopBGM();
+    const fanfare = [
+      {f:523.25, t:0.00, d:0.11, type:"square",   v:0.09}, // C5
+      {f:659.25, t:0.11, d:0.11, type:"square",   v:0.09}, // E5
+      {f:783.99, t:0.22, d:0.11, type:"square",   v:0.09}, // G5
+      {f:1046.50,t:0.34, d:0.24, type:"square",   v:0.10}, // C6
+      {f:880.00, t:0.60, d:0.14, type:"square",   v:0.09}, // A5
+      {f:987.77, t:0.75, d:0.14, type:"square",   v:0.09}, // B5
+      {f:1046.50,t:0.92, d:0.55, type:"square",   v:0.11}, // C6 final
+      {f:523.25, t:0.92, d:0.55, type:"triangle", v:0.11}, // C5 harmonia
+      {f:659.25, t:0.92, d:0.55, type:"triangle", v:0.10}, // E5 harmonia
+      {f:783.99, t:0.92, d:0.55, type:"triangle", v:0.10}  // G5 harmonia
+    ];
+    fanfare.forEach(n=> playTone(n.f, n.t, n.d, n.type, n.v));
+  },
+
+  // Game Over / Perda de fase
+  lose: ()=>{
+    playTone(392.00, 0.00, 0.18, "sawtooth", 0.09, 369.99);
+    playTone(349.23, 0.19, 0.18, "sawtooth", 0.09, 329.63);
+    playTone(311.13, 0.38, 0.18, "sawtooth", 0.09, 293.66);
+    playTone(261.63, 0.57, 0.42, "sawtooth", 0.10, 196.00);
+  }
+};
+
+/* =========================================================
+   ACESSIBILIDADE: locução por voz com fila de prioridades
+========================================================= */
+const PR = { CRITICAL:1, RESULT:2, ORDER:3, DELIVERY:4, INTERACTION:5, INGREDIENT:6, GUIDANCE:7, INFO:8 };
+const INTERRUPT_THRESHOLD = PR.DELIVERY;
+
+let narratorQueue = [];
+let narratorSpeaking = false;
+let narratorCurrentPriority = null;
+
+function speakNow(text, priority){
+  narratorSpeaking = true;
+  narratorCurrentPriority = priority;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "pt-BR";
+  u.rate = 1.02;
+  u.onend = u.onerror = ()=>{
+    narratorSpeaking = false;
+    narratorCurrentPriority = null;
+    if(narratorQueue.length){
+      narratorQueue.sort((a,b)=>a.priority-b.priority);
+      const next = narratorQueue.shift();
+      speakNow(next.text, next.priority);
+    }
+  };
+  window.speechSynthesis.speak(u);
+}
+
+function narratorSpeak(text, priority, skipIfBusy){
+  if(!G.a11y.narrator || !("speechSynthesis" in window)) return;
+  priority = priority || PR.INFO;
+  if(!narratorSpeaking){
+    speakNow(text, priority);
+    return;
+  }
+  const currentIsSecondary = narratorCurrentPriority === null || narratorCurrentPriority > INTERRUPT_THRESHOLD;
+  if(priority <= INTERRUPT_THRESHOLD && currentIsSecondary){
+    window.speechSynthesis.cancel();
+    narratorQueue = narratorQueue.filter(m=>m.priority <= INTERRUPT_THRESHOLD);
+    speakNow(text, priority);
+    return;
+  }
+  if(skipIfBusy) return;
+  narratorQueue.push({text,priority});
+}
+
+function announce(text, priority, skipIfBusy){
+  narratorSpeak(text, priority, skipIfBusy);
+}
+
+function announceSeq(lines, priority){
+  lines.forEach(line => announce(line, priority));
+}
+
+/* =========================================================
+   DOM refs
+========================================================= */
+const $ = (id)=>document.getElementById(id);
+const screens = {
+  start:$("screen-start"), charselect:$("screen-charselect"), shop:$("screen-shop"),
+  phaseComplete:$("screen-phase-complete"), lose:$("screen-lose"), complete:$("screen-complete")
+};
+const hud = $("hud");
+const kitchenUI = $("kitchen-ui");
+const canvas = $("game-canvas");
+const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+const pizzaCanvas = $("pizza-canvas");
+const pctx = pizzaCanvas.getContext("2d");
+pctx.imageSmoothingEnabled = false;
+
+function showScreen(name){
+  Object.values(screens).forEach(s=>s.classList.remove("active"));
+  if(name) screens[name].classList.add("active");
+}
+function hideAllOverlays(){
+  showScreen(null);
+  hud.style.display="none";
+  kitchenUI.classList.remove("active");
+}
+
+/* =========================================================
+   PIXEL ART HELPERS & MOEDA DOURADA
+========================================================= */
+function mkCanvas(w,h){ const c=document.createElement("canvas"); c.width=w; c.height=h; return c; }
+function R(g,x,y,w,h,col){ g.fillStyle=col; g.fillRect(x,y,w,h); }
+function OR(g,x,y,w,h,fill,line,t){ t=t||3; line=line||"#1a0f08"; R(g,x-t,y-t,w+2*t,h+2*t,line); R(g,x,y,w,h,fill); }
+
+// Matriz 16x16 da moeda dourada pixel art
+function makeCoinCanvas(){
+  const cv = mkCanvas(16,16);
+  const g = cv.getContext("2d");
+  const art = [
+    ".....OOOOOO.....",
+    "...OOYYYYYYOO...",
+    "..OYYYYLLYYYYO..",
+    ".OYYYLLLLLLYYYO.",
+    ".OYYLLGGGGLLYYO.",
+    "OYYLLGGLLGGLLYYO",
+    "OYYLGGLLLLGGLYYO",
+    "OYYLGGLLLLGGLYYO",
+    "OYYLGGLLLLGGLYYO",
+    "OYYLGGLLLLGGLYYO",
+    "OYYLLGGLLGGLLYYO",
+    ".OYYLLGGGGLLYYO.",
+    ".OYYYLLLLLLYYYO.",
+    "..OYYYYDDYYYYO..",
+    "...OODDDDDDOO...",
+    ".....OOOOOO....."
+  ];
+  const pal = {
+    "O": "#1a0f08",
+    "Y": "#ffb703",
+    "L": "#ffe66d",
+    "G": "#f48c06",
+    "D": "#d97706"
+  };
+  for(let y=0; y<16; y++){
+    for(let x=0; x<16; x++){
+      const ch = art[y][x];
+      if(pal[ch]){
+        g.fillStyle = pal[ch];
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+  }
+  return cv;
+}
+const COIN_CANVAS = makeCoinCanvas();
+
+["hud-coin-icon","k-coin-icon","shop-coin-icon"].forEach(id=>{
+  const el = $(id);
+  if(el){
+    const c = el.getContext("2d");
+    c.imageSmoothingEnabled = false;
+    c.drawImage(COIN_CANVAS, 0, 0, el.width, el.height);
+  }
+});
+
+/* =========================================================
+   SPRITE SHEET CHIBI 16-BIT
+   Personagens em grade de pixels nítida com contorno preto,
+   4 direções (down, up, left, right) e animação de passos!
+   Alinhamento exato na sola dos pés (groundY) para contato firme no piso.
+========================================================= */
+function drawChibiSprite(context, cx, groundY, scale, type, dir, walkFrame, carrying, opts){
+  context.save();
+  context.imageSmoothingEnabled = false;
+  const gx = Math.round(cx);
+  const gy = Math.round(groundY);
+  context.translate(gx, gy);
+  const cheer = !!(opts && opts.cheer);        // braços para cima (comemoração)
+  const noShadow = !!(opts && opts.noShadow);  // sombra desenhada por quem chama
+
+  const stepPhase = walkFrame ? Math.floor(walkFrame) % 4 : 0; // 0: idle, 1: passo esq, 2: idle, 3: passo dir
+  const bobY = (stepPhase === 1 || stepPhase === 3) ? -1 : 0;
+
+  // Sombra de contato rente às solas dos sapatos no piso (y = 0 é o plano do chão)
+  const shadowShrink = (stepPhase === 1 || stepPhase === 3) ? 1 : 0;
+  context.fillStyle = (noShadow ? "rgba(26,15,8,0)" : "rgba(26,15,8,0.42)");
+  context.fillRect(
+    Math.round((-7 + shadowShrink) * scale),
+    Math.round(-1.5 * scale),
+    Math.round((14 - shadowShrink * 2) * scale),
+    Math.round(2.5 * scale)
+  );
+  context.fillStyle = (noShadow ? "rgba(26,15,8,0)" : "rgba(26,15,8,0.24)");
+  context.fillRect(
+    Math.round((-8 + shadowShrink) * scale),
+    Math.round(-1 * scale),
+    Math.round((16 - shadowShrink * 2) * scale),
+    Math.round(1.5 * scale)
+  );
+
+  // Grade 16x18 pixels ancorada na base dos sapatos (y=17 fica exatamente em groundY)
+  const px = (x, y, col)=>{
+    context.fillStyle = col;
+    context.fillRect(
+      Math.round((x - 8) * scale),
+      Math.round((y - 17 + bobY) * scale),
+      Math.ceil(scale),
+      Math.ceil(scale)
+    );
+  };
+  const rectPx = (x, y, w, h, col)=>{
+    for(let yy=0; yy<h; yy++) for(let xx=0; xx<w; xx++) px(x+xx, y+yy, col);
+  };
+
+  const C_OUT   = "#1a0f08"; // contorno preto nítido
+  const C_SKIN  = "#f7cbb0"; // pele
+  const C_SHAD  = "#dfa17d"; // sombra pele
+  const C_CAP   = "#d62828"; // boné vermelho
+  const C_CAP_D = "#9b1717"; // aba/sombra boné
+  const C_LOGO  = "#ffd43b"; // detalhe dourado
+  const C_HAIR  = type === "female" ? "#5c3317" : "#6e4223";
+  const C_SHIRT = "#e03131"; // camisa vermelha
+  const C_APRON = "#343a40"; // avental escuro
+  const C_PANTS = "#2b5b9e"; // calça jeans azul
+  const C_SHOE  = "#4a2c18"; // sapato marrom
+
+  if(dir === "down" || dir === "up"){
+    // --- CABEÇA E BONÉ ---
+    rectPx(4, 0, 8, 1, C_OUT);
+    rectPx(3, 1, 10, 1, C_OUT);
+    rectPx(4, 1, 8, 2, C_CAP);
+    if(dir === "down"){
+      px(7, 1, C_LOGO); px(8, 1, C_LOGO);
+      rectPx(3, 3, 10, 1, C_CAP_D);
+      rectPx(2, 3, 1, 1, C_OUT); rectPx(13, 3, 1, 1, C_OUT);
+    } else {
+      rectPx(3, 2, 10, 2, C_CAP_D);
+      px(7, 3, C_OUT); px(8, 3, C_OUT);
+    }
+
+    // Rosto / Cabelo
+    rectPx(2, 4, 1, 5, C_OUT);
+    rectPx(13, 4, 1, 5, C_OUT);
+    rectPx(3, 4, 10, 5, dir === "down" ? C_SKIN : C_HAIR);
+    rectPx(4, 9, 8, 1, C_OUT);
+
+    if(dir === "down"){
+      rectPx(3, 4, 2, 1, C_HAIR);
+      rectPx(11, 4, 2, 1, C_HAIR);
+      if(type === "female"){
+        rectPx(3, 5, 1, 4, C_HAIR);
+        rectPx(12, 5, 1, 4, C_HAIR);
+        rectPx(14, 5, 2, 3, C_HAIR);
+        px(14, 4, C_OUT); px(15, 4, C_OUT); px(16, 5, C_OUT); px(16, 6, C_OUT); px(16, 7, C_OUT); px(14, 8, C_OUT); px(15, 8, C_OUT);
+      }
+      // Olhos pixelados
+      rectPx(5, 6, 1, 2, C_OUT);
+      rectPx(10, 6, 1, 2, C_OUT);
+      px(4, 8, C_SHAD); px(11, 8, C_SHAD);
+    } else {
+      rectPx(3, 8, 10, 1, "#45240e");
+      if(type === "female"){
+        rectPx(6, 5, 4, 4, "#45240e");
+      }
+    }
+
+    // --- TRONCO, BRAÇOS E AVENTAL ---
+    rectPx(3, 10, 10, 4, C_SHIRT);
+    rectPx(2, 10, 1, 3, C_OUT);
+    rectPx(13, 10, 1, 3, C_OUT);
+
+    if(dir === "down"){
+      rectPx(5, 10, 6, 4, C_APRON);
+      px(6, 10, C_SHIRT); px(9, 10, C_SHIRT);
+    }
+
+    // Braços animados
+    if(cheer){
+      // comemorando: braços para cima
+      rectPx(-1, 2, 4, 9, C_OUT);  rectPx(0, 3, 2, 5, C_SKIN);  rectPx(0, 8, 2, 3, C_SHIRT);
+      rectPx(13, 2, 4, 9, C_OUT);  rectPx(14, 3, 2, 5, C_SKIN); rectPx(14, 8, 2, 3, C_SHIRT);
+    } else {
+    const leftArmY  = stepPhase === 1 ? 11 : 10;
+    const rightArmY = stepPhase === 3 ? 11 : 10;
+    rectPx(1, leftArmY, 2, 3, C_SKIN);
+    px(1, leftArmY-1, C_OUT); px(0, leftArmY, C_OUT); px(0, leftArmY+1, C_OUT); px(0, leftArmY+2, C_OUT); px(1, leftArmY+3, C_OUT);
+    rectPx(13, rightArmY, 2, 3, C_SKIN);
+    px(14, rightArmY-1, C_OUT); px(15, rightArmY, C_OUT); px(15, rightArmY+1, C_OUT); px(15, rightArmY+2, C_OUT); px(14, rightArmY+3, C_OUT);
+    }
+
+    // --- PERNAS E SAPATOS ---
+    rectPx(3, 14, 10, 1, C_OUT);
+    if(stepPhase === 1){
+      rectPx(4, 14, 3, 2, C_PANTS);
+      rectPx(3, 16, 4, 1, C_SHOE);
+      rectPx(3, 17, 4, 1, C_OUT);
+      rectPx(9, 14, 3, 1, C_PANTS);
+      rectPx(9, 15, 3, 1, C_SHOE);
+      rectPx(9, 16, 3, 1, C_OUT);
+    } else if(stepPhase === 3){
+      rectPx(4, 14, 3, 1, C_PANTS);
+      rectPx(4, 15, 3, 1, C_SHOE);
+      rectPx(4, 16, 3, 1, C_OUT);
+      rectPx(9, 14, 3, 2, C_PANTS);
+      rectPx(9, 16, 4, 1, C_SHOE);
+      rectPx(9, 17, 4, 1, C_OUT);
+    } else {
+      rectPx(4, 14, 3, 2, C_PANTS);
+      rectPx(9, 14, 3, 2, C_PANTS);
+      rectPx(3, 16, 4, 1, C_SHOE);
+      rectPx(9, 16, 4, 1, C_SHOE);
+      rectPx(3, 17, 4, 1, C_OUT);
+      rectPx(9, 17, 4, 1, C_OUT);
+      px(7, 15, C_OUT); px(8, 15, C_OUT);
+    }
+
+    // --- CAIXA DE PIZZA COMPACTA NAS MÃOS (menor que o entregador) ---
+    if(carrying && dir === "down"){
+      rectPx(3, 10, 10, 4, C_OUT);
+      rectPx(4, 10, 8, 1, "#c87d32");
+      rectPx(4, 11, 8, 2, "#f4a261");
+      rectPx(5, 11, 6, 1, "#ffd43b");
+      px(6, 11, "#d62828"); px(9, 11, "#2f9e44");
+      rectPx(4, 13, 8, 1, "#b5651d");
+    }
+  } else {
+    // --- VISÃO LATERAL (left / right) ---
+    const isLeft = dir === "left";
+    const fx = (x)=> isLeft ? (15 - x) : x;
+    const pxs = (x, y, col)=> px(fx(x), y, col);
+    const rectPxs = (x, y, w, h, col)=>{
+      for(let yy=0; yy<h; yy++) for(let xx=0; xx<w; xx++) pxs(x+xx, y+yy, col);
+    };
+
+    // Boné com aba apontando para frente
+    rectPxs(4, 0, 7, 1, C_OUT);
+    rectPxs(3, 1, 9, 2, C_CAP);
+    rectPxs(3, 3, 11, 1, C_CAP_D);
+    pxs(2, 1, C_OUT); pxs(2, 2, C_OUT); pxs(12, 1, C_OUT); pxs(14, 3, C_OUT);
+    pxs(10, 1, C_LOGO);
+
+    // Cabeça perfil
+    rectPxs(3, 4, 9, 5, C_SKIN);
+    rectPxs(2, 4, 1, 5, C_OUT);
+    rectPxs(12, 4, 1, 5, C_OUT);
+    rectPxs(3, 9, 9, 1, C_OUT);
+
+    // Cabelo atrás e costeleta
+    rectPxs(3, 4, 3, 4, C_HAIR);
+    if(type === "female"){
+      rectPxs(0, 5, 2, 4, C_HAIR);
+      pxs(1, 4, C_OUT); pxs(0, 9, C_OUT); pxs(1, 9, C_OUT);
+    }
+    // Olho lateral
+    rectPxs(10, 6, 1, 2, C_OUT);
+
+    // Tronco lateral
+    rectPxs(4, 10, 7, 4, C_SHIRT);
+    rectPxs(8, 10, 3, 4, C_APRON);
+    rectPxs(3, 10, 1, 4, C_OUT);
+    rectPxs(11, 10, 1, 4, C_OUT);
+
+    // Braço balançando
+    const armShift = stepPhase === 1 ? -1 : (stepPhase === 3 ? 1 : 0);
+    rectPxs(6 + armShift, 10, 3, 3, C_SKIN);
+    pxs(6 + armShift, 13, C_OUT); pxs(7 + armShift, 13, C_OUT); pxs(8 + armShift, 13, C_OUT);
+
+    // Pernas andando
+    if(stepPhase === 1 || stepPhase === 3){
+      rectPxs(3, 14, 3, 2, C_PANTS);
+      rectPxs(2, 16, 4, 1, C_SHOE);
+      rectPxs(2, 17, 4, 1, C_OUT);
+
+      rectPxs(9, 14, 3, 2, C_PANTS);
+      rectPxs(9, 16, 4, 1, C_SHOE);
+      rectPxs(9, 17, 4, 1, C_OUT);
+    } else {
+      rectPxs(5, 14, 5, 2, C_PANTS);
+      rectPxs(5, 16, 6, 1, C_SHOE);
+      rectPxs(5, 17, 6, 1, C_OUT);
+    }
+
+    // Caixa compacta projetada à frente quando lateral
+    if(carrying){
+      rectPxs(9, 10, 7, 4, C_OUT);
+      rectPxs(10, 10, 5, 1, "#c87d32");
+      rectPxs(10, 11, 5, 2, "#f4a261");
+      rectPxs(11, 11, 3, 1, "#ffd43b");
+      pxs(12, 11, "#d62828");
+    }
+  }
+
+  context.restore();
+}
+
+function renderCharCard(canvasEl, type){
+  const c = canvasEl.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.clearRect(0,0,canvasEl.width,canvasEl.height);
+  drawChibiSprite(c, canvasEl.width/2, canvasEl.height*0.86, 5.2, type, "down", 0, false);
+}
+renderCharCard(document.querySelector("#card-male canvas"), "male");
+renderCharCard(document.querySelector("#card-female canvas"), "female");
+
+/* =========================================================
+   WORLD / ROOM DEFINITIONS (service area)
+========================================================= */
+const WORLD = { w:960, h:600, floorTop:140 };
+const TABLE_W = 60, TABLE_H = 110;
+const TABLE_LIST = [ {x:150,y:290}, {x:450,y:360}, {x:720,y:270} ];
+const COUNTER_RECT = {x:340,y:170,w:280,h:55};
+const PLANT = {x:14,y:524,w:46,h:64};
+const serviceObstacles = [
+  {x:0,y:0,w:960,h:150, wall:true},
+  COUNTER_RECT,
+  PLANT
+];
+TABLE_LIST.forEach(t=>{
+  serviceObstacles.push({x:t.x,y:t.y,w:TABLE_W,h:TABLE_H});
+  [10,64].forEach(oy=>{
+    serviceObstacles.push({x:t.x-26,y:t.y+oy,w:22,h:28});
+    serviceObstacles.push({x:t.x+TABLE_W+4,y:t.y+oy,w:22,h:28});
+  });
+});
+// Zona de interação em volta de cada mesa (atender, entregar a pizza e pegar o dinheiro)
+const TABLE_ZONES = TABLE_LIST.map(t=>({x:t.x-44,y:t.y-44,w:TABLE_W+88,h:TABLE_H+88}));
+const TABLE_NAMES = ["mesa 1, à esquerda","mesa 2, no centro","mesa 3, à direita"];
+const DOOR_X = -40;        // porta de entrada: fora da tela, à esquerda
+const AISLE_Y = 248;       // corredor por onde os clientes caminham (linha dos pés)
+const CUST_PRICE = 10;     // dinheiro que o cliente deixa na mesa
+const kitchenDoorZone = {x:850,y:420,w:90,h:100};
+
+/* Player entity */
+const player = {
+  x:120, y:420, w:34, h:46, speed:2.7, dir:"down", walking:false
+};
+
+function resetPlayerPosition(){
+  player.x = 120; player.y = 420; player.dir="down"; player.walking=false;
+  doorLocked = false;
+}
+
+function rectsOverlap(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+/* =========================================================
+   INPUT
+========================================================= */
+window.addEventListener("keydown",(e)=>{
+  ensureAudio();
+  const k = e.key.toLowerCase();
+
+  if(G.state==="CHAR_SELECT"){
+    if(k==="arrowleft" || k==="a"){ setCharSelectIndex(0); return; }
+    if(k==="arrowright" || k==="d"){ setCharSelectIndex(1); return; }
+    if(k==="enter" || k==="e"){ confirmCharSelect(); return; }
+  }
+
+  if(k==="enter"){
+    if(G.state==="LOSE"){ $("btn-retry").click(); return; }
+    if(G.state==="PHASE_COMPLETE"){ $("btn-pc-continue").click(); return; }
+    if(G.state==="COMPLETE"){ $("btn-play-again").click(); return; }
+  }
+
+  if(k==="escape"){ togglePause(); return; }
+
+  if(G.paused) return;
+
+  if(["arrowup","w"].includes(k)) G.keys.up=true;
+  if(["arrowdown","s"].includes(k)) G.keys.down=true;
+  if(["arrowleft","a"].includes(k)) G.keys.left=true;
+  if(["arrowright","d"].includes(k)) G.keys.right=true;
+  if(k==="e") tryInteract();
+  if(G.state==="START" && k!=="e"){ goCharSelect(); }
+});
+window.addEventListener("keyup",(e)=>{
+  const k = e.key.toLowerCase();
+  if(["arrowup","w"].includes(k)) G.keys.up=false;
+  if(["arrowdown","s"].includes(k)) G.keys.down=false;
+  if(["arrowleft","a"].includes(k)) G.keys.left=false;
+  if(["arrowright","d"].includes(k)) G.keys.right=false;
+});
+document.getElementById("stage").addEventListener("click",()=>{
+  ensureAudio();
+  if(G.state==="START"){ goCharSelect(); }
+});
+
+function bindHold(id,dir){
+  const el = $(id);
+  const set=(v)=>{ ensureAudio(); G.keys[dir]=v; };
+  el.addEventListener("touchstart",(e)=>{e.preventDefault(); set(true);});
+  el.addEventListener("touchend",(e)=>{e.preventDefault(); set(false);});
+  el.addEventListener("mousedown",()=>set(true));
+  el.addEventListener("mouseup",()=>set(false));
+  el.addEventListener("mouseleave",()=>set(false));
+}
+bindHold("btn-up","up"); bindHold("btn-down","down"); bindHold("btn-left","left"); bindHold("btn-right","right");
+$("btn-e").addEventListener("click", ()=>{ ensureAudio(); tryInteract(); });
+
+function detectMobile(){
+  return window.matchMedia("(pointer:coarse)").matches;
+}
+if(detectMobile()){
+  $("controls-mobile").classList.add("show");
+}
+
+/* =========================================================
+   PIZZA PIXEL ART (Alta densidade de pixels - 84x84)
+========================================================= */
+function makePizzaCanvas(st, N, board){
+  N=N||84;
+  const cv=mkCanvas(N,N), g=cv.getContext("2d");
+  const c0=(N-1)/2;
+  const Rb=N/2-0.5;
+  const R0=board ? N/2-5 : N/2-1.5;
+  const rIn=R0-8.5;
+  const px=(x,y,col)=>{ g.fillStyle=col; g.fillRect(x,y,1,1); };
+  const hs=(x,y)=>(((x*73856093)^(y*19349663))>>>0)%12;
+  for(let y=0;y<N;y++){
+    for(let x=0;x<N;x++){
+      const dx=x-c0, dy=y-c0, d=Math.sqrt(dx*dx+dy*dy), a=Math.atan2(dy,dx);
+      const Re=R0+Math.sin(a*12)*0.8;
+      if(d>Re+0.5){
+        if(board && d<=Rb){
+          if(d>Rb-1.4) px(x,y,"#1a0f08");
+          else px(x,y, hs(x,y)<3 ? "#d49448" : (hs(x,y)<6 ? "#b8762e" : "#a36322"));
+        }
+        continue;
+      }
+      if(d>Re-1.3){ px(x,y,"#1a0f08"); continue; }
+      if(d>rIn+1.2){
+        const lump=Math.sin(a*16)>0.5;
+        px(x,y, lump ? "#f5c482" : (hs(x,y)<3 ? "#e69e5c" : "#d98845"));
+        continue;
+      }
+      if(d>rIn){ px(x,y,"#8c4a20"); continue; }
+      let c="#f0c984";
+      if(st.molho) c = hs(x,y)<2 ? "#b8322c" : (hs(x,y)<4 ? "#e66456" : "#d6453a");
+      if(st.queijo && d<rIn-2.8){
+        c = hs(x,y)<2 ? "#fff08a" : (hs(x,y)<5 ? "#ffd43b" : "#f5b82e");
+        const k=Math.round(a/(Math.PI/4));
+        const df=Math.abs(a-k*Math.PI/4)*d;
+        if(df<0.65) c="#c48223";
+      }
+      px(x,y,c);
+    }
+  }
+  const s=R0/32, m=rIn*0.88;
+  if(st.calabresa){
+    [[-.5,-.42],[.36,-.55],[-.62,.1],[.08,-.02],[.62,.08],[-.25,.6],[.42,.55]].forEach(p=>{
+      const cx=Math.round(c0+p[0]*m), cy=Math.round(c0+p[1]*m), rr=5.8*s;
+      for(let yy=-8;yy<=8;yy++){
+        for(let xx=-8;xx<=8;xx++){
+          const dd=Math.sqrt(xx*xx+yy*yy);
+          if(dd>rr) continue;
+          let col = dd>rr-1.3 ? "#3b0e0b" : "#b82923";
+          if(dd<=rr-1.3 && xx<0 && yy<0 && dd>rr-3.5) col="#e0564a";
+          if(dd<=rr-2.5 && ((xx+yy)%3===0)) col="#f2a69e"; // pontinhos da calabresa
+          px(cx+xx,cy+yy,col);
+        }
+      }
+    });
+  }
+  if(st.azeitona){
+    [[-.12,-.72],[.66,-.28],[-.7,-.22],[.26,.22],[-.3,.3],[.7,.3],[.05,.74],[-.55,.5]].forEach(p=>{
+      const cx=Math.round(c0+p[0]*m), cy=Math.round(c0+p[1]*m);
+      R(g,cx-3,cy-2,6,4,"#1f2410");
+      R(g,cx-2,cy-1,4,2,"#4f5922");
+      R(g,cx-1,cy-1,2,2,"#c9cf55");
+    });
+  }
+  return cv;
+}
+const PIZZA_FULL = makePizzaCanvas({molho:true,queijo:true,calabresa:true,azeitona:true},84,false);
+try{
+  ["start-pizza","complete-pizza"].forEach(id=>{
+    const sp=document.getElementById(id);
+    if(sp){
+      const sctx = sp.getContext("2d");
+      sctx.imageSmoothingEnabled = false;
+      sctx.drawImage(PIZZA_FULL,0,0,sp.width,sp.height);
+    }
+  });
+}catch(e){}
+
+/* ---------- móveis e decoração pixel art (Referência 1: toldo listrado, prateleiras, trepadeiras) ---------- */
+function drawFridge(g,x,y){
+  OR(g,x,y,100,100,"#454b5b","#1a0f08",4);
+  R(g,x+4,y+2,92,6,"#2a2f3b");
+  const cols=["#e8f1ff","#f0a030","#a050c8","#e8f1ff","#d84040","#58c868"];
+  for(let i=0;i<2;i++){
+    const dx=x+6+i*46;
+    OR(g,dx,y+12,40,80,"#3d79b8","#1a0f08",3);
+    for(let r=0;r<4;r++){
+      const ry=y+16+r*19;
+      for(let b=0;b<5;b++){
+        R(g,dx+3+b*7,ry+2,5,11,cols[(r*3+b+i)%cols.length]);
+        R(g,dx+3+b*7,ry,5,3,"#223");
+      }
+      R(g,dx+2,ry+14,36,2,"#9ab8dd");
+    }
+    R(g,dx+(i?3:34),y+40,3,24,"#dfe4ee");
+  }
+}
+function drawJuke(g,x,y){
+  OR(g,x+4,y,48,14,"#c8343a","#1a0f08",3);
+  OR(g,x,y+14,56,66,"#c8343a","#1a0f08",3);
+  R(g,x+8,y+20,40,36,"#f6c244");
+  R(g,x+8,y+20,40,5,"#ffe08a");
+  for(let i=0;i<4;i++) R(g,x+12+i*9,y+28,5,26,i%2?"#e8873a":"#f09a3e");
+  R(g,x+8,y+60,8,6,"#58d0ff"); R(g,x+24,y+60,8,6,"#ff6ab0"); R(g,x+40,y+60,8,6,"#7dff9a");
+  R(g,x+4,y+72,48,4,"#7a1e22");
+}
+// Prateleira de madeira com potes e mini-vasos (inspirada na imagem 1)
+function drawWallShelf(g,x,y){
+  OR(g,x,y+28,74,7,"#8c5230","#1a0f08",2);
+  OR(g,x,y+60,74,7,"#8c5230","#1a0f08",2);
+  R(g,x+6,y+35,5,25,"#5e351e");
+  R(g,x+63,y+35,5,25,"#5e351e");
+  // Potes superiores
+  OR(g,x+8,y+12,14,15,"#3b76b8","#1a0f08",2); R(g,x+10,y+9,10,3,"#dfe4ee");
+  OR(g,x+28,y+10,16,17,"#f4a261","#1a0f08",2); R(g,x+31,y+7,10,3,"#ffd43b");
+  // Mini vaso com planta
+  OR(g,x+52,y+17,14,10,"#c84b31","#1a0f08",2);
+  R(g,x+50,y+10,18,7,"#2f9e44"); R(g,x+53,y+7,12,4,"#51cf66");
+  // Pães e molhos na prateleira inferior
+  OR(g,x+8,y+48,18,11,"#d97724","#1a0f08",2); R(g,x+11,y+50,12,2,"#ffd43b");
+  OR(g,x+30,y+48,18,11,"#d97724","#1a0f08",2); R(g,x+33,y+50,12,2,"#ffd43b");
+  OR(g,x+54,y+44,10,15,"#d62828","#1a0f08",2); R(g,x+56,y+41,6,3,"#fff");
+}
+// Toldo listrado vermelho e branco (inspirado na imagem 1)
+function drawAwning(g,x,y,w){
+  const stripeW = 20;
+  const cols = Math.floor(w / stripeW);
+  R(g,x-3,y-3,cols*stripeW+6,26,"#1a0f08");
+  for(let i=0;i<cols;i++){
+    const isRed = i%2===0;
+    R(g,x+i*stripeW,y,stripeW,16, isRed ? "#d62828" : "#f8f5f0");
+    R(g,x+i*stripeW,y+12,stripeW,4, isRed ? "#9b1717" : "#dcd4c8");
+    // Borda ondulada inferior
+    R(g,x+i*stripeW+2,y+16,stripeW-4,5, isRed ? "#9b1717" : "#dcd4c8");
+    R(g,x+i*stripeW+2,y+21,stripeW-4,2, "#1a0f08");
+  }
+}
+// Trepadeira verde na parede (inspirada na imagem 1)
+function drawWallVine(g,x,y){
+  const leaves = [[0,0],[8,2],[16,0],[4,8],[12,10],[20,6],[2,16],[10,18],[6,26]];
+  leaves.forEach((l,i)=>{
+    R(g,x+l[0]-1,y+l[1]-1,8,7,"#1a0f08");
+    R(g,x+l[0],y+l[1],6,5, i%2===0 ? "#2f9e44" : "#51cf66");
+  });
+}
+function drawPoster(g,x,y){
+  OR(g,x,y,58,46,"#ffffff","#1a0f08",3);
+  const cs=["#e8343a","#3d79b8","#f6c244","#d86aa8","#58c868","#6a4fb8"];
+  for(let r=0;r<4;r++) for(let c=0;c<5;c++) R(g,x+c*11+1,y+r*11+1,10,10,cs[(r*5+c*3+r)%cs.length]);
+}
+function drawArcade(g,x,y){
+  OR(g,x,y,54,88,"#4aa25a","#1a0f08",3);
+  OR(g,x+6,y+8,42,28,"#12301a","#0a1c10",2);
+  R(g,x+10,y+12,18,3,"#8dff9a"); R(g,x+10,y+19,26,3,"#8dff9a"); R(g,x+10,y+26,12,3,"#8dff9a");
+  R(g,x+4,y+44,46,12,"#2e7a3c");
+  R(g,x+10,y+47,6,6,"#e8343a"); R(g,x+22,y+47,6,6,"#f6c244"); R(g,x+34,y+47,6,6,"#3d79b8");
+  R(g,x+4,y+60,46,24,"#2e7a3c");
+}
+function drawSign(g,x,y){
+  OR(g,x,y,184,38,"#c8242a","#1a0f08",4);
+  R(g,x+4,y+4,176,30,"#9b1717"); R(g,x+6,y+6,172,2,"#ffd34a"); R(g,x+6,y+30,172,2,"#ffd34a");
+  g.font="bold 21px monospace"; g.textAlign="center"; g.textBaseline="middle";
+  g.fillStyle="#1a0f08"; g.fillText("PIZZA CLUB",x+94,y+21);
+  g.fillStyle="#ffd34a"; g.fillText("PIZZA CLUB",x+92,y+19);
+  g.textBaseline="alphabetic";
+}
+function drawPlant(g,x,y){
+  OR(g,x+8,y+40,30,22,"#b8542c","#1a0f08",3); R(g,x+8,y+40,30,5,"#d8703c");
+  [[x+4,y+8,10,34],[x+16,y,12,40],[x+30,y+10,10,32],[x+10,y+18,8,24],[x+26,y+20,8,22]].forEach((l,i)=>{
+    OR(g,l[0],l[1],l[2],l[3],i%2?"#3e9a4a":"#256a30","#1a0f08",2);
+  });
+}
+function drawKitchenDoor(g){
+  OR(g,922,396,38,150,"#7a4a2b","#1a0f08",4);
+  R(g,926,400,30,142,"#9a6236"); R(g,926,400,4,142,"#b27642");
+  OR(g,930,412,22,26,"#bfe3f0","#1a0f08",3); R(g,934,420,6,6,"#e8f6fb");
+  R(g,934,476,6,8,"#ffd34a");
+  OR(g,884,364,72,24,"#c8242a","#1a0f08",3);
+  g.font="bold 12px monospace"; g.textAlign="center"; g.fillStyle="#ffd34a"; g.fillText("COZINHA",920,381);
+  const z=kitchenDoorZone;
+  OR(g,z.x+4,z.y+4,z.w-8,z.h-8,"#a8262c","#1a0f08",3);
+  R(g,z.x+10,z.y+10,z.w-20,2,"#ffd34a"); R(g,z.x+10,z.y+z.h-12,z.w-20,2,"#ffd34a");
+  R(g,z.x+16,z.y+46,40,8,"#ffd34a"); R(g,z.x+54,z.y+38,8,24,"#ffd34a");
+  R(g,z.x+62,z.y+42,8,16,"#ffd34a"); R(g,z.x+70,z.y+46,6,8,"#ffd34a");
+}
+
+/* ---------- personagens (clientes) ---------- */
+const KID_STYLES=[
+  {hair:"#2b1b12",shirt:"#f08a3c",pants:"#3a3f6b"},
+  {hair:"#6b3f1f",shirt:"#3f7fbf",pants:"#2b2f55"},
+  {hair:"#1a1a1a",shirt:"#8fa4c4",pants:"#3a3a3a"},
+  {hair:"#d86aa8",shirt:"#e8c040",pants:"#4a3a6b"},
+  {hair:"#8c3b1e",shirt:"#2f9e44",pants:"#26324d"},
+  {hair:"#3d2514",shirt:"#d63636",pants:"#303846"},
+  {hair:"#c98a2c",shirt:"#7950f2",pants:"#2b2f55"},
+  {hair:"#1f1f24",shirt:"#15aabf",pants:"#3a2e25"}
+];
+const TABLE_PIZZAS = [
+  makePizzaCanvas({molho:true,queijo:true,calabresa:true,azeitona:true},56,false),
+  makePizzaCanvas({molho:true,queijo:true,calabresa:true,azeitona:false},56,false),
+  makePizzaCanvas({molho:true,queijo:true,calabresa:false,azeitona:true},56,false)
+];
+function drawKidFull(g,cx,by,st,happy){
+  g.fillStyle="rgba(26,15,8,.28)"; g.fillRect(cx-14,by-3,28,6);
+  OR(g,cx-9,by-14,7,12,st.pants,"#1a0f08",2); OR(g,cx+2,by-14,7,12,st.pants,"#1a0f08",2);
+  OR(g,cx-12,by-34,24,22,st.shirt,"#1a0f08",3);
+  R(g,cx-15,by-32,3,14,"#f7cbb0"); R(g,cx+12,by-32,3,14,"#f7cbb0");
+  OR(g,cx-11,by-58,22,22,"#f7cbb0","#1a0f08",3);
+  R(g,cx-11,by-58,22,8,st.hair); R(g,cx-11,by-52,4,8,st.hair); R(g,cx+7,by-52,4,8,st.hair);
+  R(g,cx-6,by-46,3,4,"#1a0f08"); R(g,cx+3,by-46,3,4,"#1a0f08");
+  if(happy){
+    R(g,cx-5,by-40,10,3,"#a02020");
+    const heart=["0110110","1111111","1111111","0111110","0011100","0001000"];
+    heart.forEach((row,ry)=>{ for(let rx=0;rx<7;rx++){ if(row[rx]==="1") R(g,cx-10+rx*3,by-82+ry*3,3,3,"#e8343a"); } });
+  } else {
+    R(g,cx-2,by-40,4,2,"#a05030");
+  }
+}
+function drawKidSeated(g,cx,top,st){
+  OR(g,cx-9,top+20,18,14,st.shirt,"#1a0f08",3);
+  OR(g,cx-9,top,18,18,"#f7cbb0","#1a0f08",3);
+  R(g,cx-9,top,18,7,st.hair); R(g,cx-9,top+6,3,6,st.hair); R(g,cx+6,top+6,3,6,st.hair);
+  R(g,cx-5,top+10,2,3,"#1a0f08"); R(g,cx+3,top+10,2,3,"#1a0f08");
+}
+function drawTableCup(g,x,y,col){
+  OR(g,x,y,7,9,col,"#1a0f08",2);
+  R(g,x+1,y-2,5,2,"#f4f0ea");
+  R(g,x+4,y-5,2,4,"#ffd43b"); // canudo
+}
+
+/* ---------- mesas com toalha xadrez, cadeiras e clientes ---------- */
+function drawChair(g,x,y,side){
+  if(side<0){ OR(g,x+6,y+4,16,22,"#c8343a","#1a0f08",3); OR(g,x,y,6,28,"#b8742c","#1a0f08",2); }
+  else      { OR(g,x,y+4,16,22,"#c8343a","#1a0f08",3); OR(g,x+16,y,6,28,"#b8742c","#1a0f08",2); }
+}
+function makeTableCanvas(tableIndex){
+  // Mesa VAZIA: só cadeiras e toalha xadrez. Os clientes (e a pizza) são desenhados em tempo real.
+  const cv=mkCanvas(130,164), g=cv.getContext("2d");
+  const ox=34, oy=36;
+  const chairYs=[oy+10, oy+64];
+  chairYs.forEach(cy=>{ drawChair(g,ox-26,cy,-1); drawChair(g,ox+TABLE_W+4,cy,1); });
+
+  // Sombra da mesa no piso
+  R(g,ox-2,oy+TABLE_H,TABLE_W+4,10,"rgba(26,15,8,.25)");
+  OR(g,ox,oy,TABLE_W,TABLE_H,"#f4f0ea","#1a0f08",3);
+  for(let r=0;r<10;r++){
+    const hh=Math.min(12,TABLE_H-r*12);
+    if(hh<=0) continue;
+    for(let c=0;c<5;c++) if((r+c)%2===0) R(g,ox+c*12,oy+r*12,12,hh,"#c8242a");
+  }
+  R(g,ox,oy+TABLE_H-4,TABLE_W,4,"rgba(0,0,0,.22)");
+  R(g,ox+6,oy+TABLE_H,6,8,"#3a2a20"); R(g,ox+TABLE_W-12,oy+TABLE_H,6,8,"#3a2a20");
+
+  // Porta-guardanapo no centro da mesa
+  OR(g,ox+TABLE_W/2-5,oy+TABLE_H/2-6,10,12,"#f4f0e6","#1a0f08",2);
+  R(g,ox+TABLE_W/2-3,oy+TABLE_H/2-2,6,2,"#d8453a");
+  return cv;
+}
+const TABLE_CANVASES = TABLE_LIST.map((t,i)=>makeTableCanvas(i));
+
+/* ---------- balcão de atendimento ---------- */
+function drawCounter(g){
+  const c=COUNTER_RECT;
+  R(g,c.x-4,c.y-4,c.w+8,c.h+8,"#1a0f08");
+  R(g,c.x,c.y,c.w,20,"#f5deb3"); R(g,c.x,c.y,c.w,4,"#fff4db");
+  R(g,c.x,c.y+20,c.w,c.h-20,"#8c5230");
+  for(let i=1;i<4;i++) R(g,c.x+i*70-2,c.y+20,4,c.h-20,"#63371e");
+  R(g,c.x,c.y+c.h-5,c.w,5,"#4a2714");
+  OR(g,c.x+80,c.y+26,120,20,"#2b1508","#1a0f08",2);
+  g.font="bold 11px monospace"; g.textAlign="center"; g.fillStyle="#ffd34a";
+  g.fillText("BALCÃO",c.x+140,c.y+40);
+  g.imageSmoothingEnabled=false;
+  g.drawImage(PIZZA_FULL,c.x+10,c.y-34,48,48);
+  OR(g,c.x+232,c.y-14,34,24,"#58606e","#1a0f08",2); R(g,c.x+238,c.y-10,22,9,"#7dff9a");
+  OR(g,c.x+70,c.y-10,14,18,"#f4f0e6","#1a0f08",2); R(g,c.x+73,c.y-6,8,2,"#d8453a");
+  OR(g,c.x+92,c.y-10,14,18,"#f4f0e6","#1a0f08",2); R(g,c.x+95,c.y-6,8,2,"#f0a030");
+}
+
+/* ---------- porta de entrada (lado esquerdo): por onde os clientes entram e saem ---------- */
+function drawEntrance(g){
+  const dy=AISLE_Y;
+  OR(g,0,dy-76,16,92,"#7a4a2b","#1a0f08",3);
+  R(g,4,dy-70,8,80,"#bfe3f0"); R(g,4,dy-70,3,80,"#e8f6fb");
+  R(g,4,dy-34,8,3,"#7a4a2b");
+  OR(g,0,dy-96,58,16,"#c8242a","#1a0f08",3);
+  g.font="bold 9px monospace"; g.textAlign="center"; g.fillStyle="#ffd34a"; g.fillText("ENTRADA",29,dy-84);
+  OR(g,20,dy-12,46,22,"#a8262c","#1a0f08",3);
+  R(g,26,dy-6,34,2,"#ffd34a"); R(g,26,dy+2,34,2,"#ffd34a");
+}
+
+/* ---------- cenário pré-renderizado (piso quadriculado terracota + toldo + prateleiras) ---------- */
+let BG=null;
+function buildBackground(){
+  BG=mkCanvas(960,600);
+  const g=BG.getContext("2d");
+  // Parede texturizada
+  R(g,0,0,960,140,"#e6b88a");
+  g.fillStyle="#cf9c6b";
+  for(let y=58;y<124;y+=14){ for(let x=((y/14)%2)*24+6;x<960;x+=48) g.fillRect(x,y,12,3); }
+  // Tijolinhos superiores
+  R(g,0,0,960,36,"#efd2aa");
+  for(let r=0;r<3;r++){
+    const y=r*12;
+    for(let x=-(r%2)*24;x<960;x+=48){ R(g,x+2,y+2,44,8,"#c47f4f"); R(g,x+2,y+2,44,2,"#d6935f"); }
+  }
+  R(g,0,36,960,4,"#8f5a38");
+  R(g,0,126,960,14,"#5a2d1a"); R(g,0,136,960,4,"#1a0f08");
+
+  // Piso de ladrilhos terracota quadriculados (inspirado na imagem 1!)
+  const tileSize = 40;
+  for(let y=140; y<600; y+=tileSize){
+    const row = Math.floor((y-140)/tileSize);
+    for(let x=0; x<960; x+=tileSize){
+      const col = Math.floor(x/tileSize);
+      const isLight = (row + col) % 2 === 0;
+      R(g, x, y, tileSize, tileSize, isLight ? "#e5ac7e" : "#cc8d60");
+      // Rejunte e brilho sutil de pixel art
+      R(g, x, y, tileSize, 2, isLight ? "#f2c199" : "#dba074");
+      R(g, x, y+tileSize-2, tileSize, 2, "#a86c43");
+      R(g, x+tileSize-2, y, 2, tileSize, "#a86c43");
+    }
+  }
+
+  // Decoração da parede
+  drawFridge(g,46,36);
+  drawJuke(g,166,56);
+  drawWallShelf(g,244,44);
+  drawSign(g,388,42);
+  drawAwning(g,380,86,200); // Toldo listrado vermelho e branco sobre o balcão!
+  drawPoster(g,616,54);
+  drawWallShelf(g,694,44);
+  drawArcade(g,800,48);
+  drawWallVine(g,18,38);
+  drawWallVine(g,344,38);
+  drawWallVine(g,588,38);
+  drawWallVine(g,874,38);
+  drawKitchenDoor(g);
+  drawEntrance(g);
+}
+buildBackground();
+
+let dinerAnimTick = 0;
+/* =========================================================
+   SISTEMA DE CLIENTES
+   entra pela porta → senta numa mesa vazia → pedido (balão de fala) → espera → recebe → come → deixa o dinheiro na mesa → vai embora
+========================================================= */
+const CUST_SPEED = 2.3;
+const CUST_BITE = 30;               // frames por mordida
+const CUST_EATEN = [3,6,8];          // fatias (de 8) já comidas após cada mordida
+const CUST_NAMES = ["Bia","Caio","Lia","Théo","Duda","Nando","Maya","Pedro","Zeca","Lara","Rafa","Nina"];
+const CUST_TXT = {
+  greet:["Oi! Eu queria uma pizza com:","Boa tarde! Quero uma pizza com:","Tô com fome! Uma pizza com:","Olá! Me vê uma pizza com:"],
+  thanks:["Obrigado!","Que delícia!","Nhami!","Adorei!"],
+  bye:["Tchau!","Volto logo!","Até mais!","Nota 10!"],
+  wrong:["Não era isso!","Esse não é o meu!","Ei, errou!"]
+};
+const CUST_CAPS = ["#d62828","#2b6fb3","#2f9e44","#7950f2","#f08a3c"];
+const cuPick = a=>a[(Math.random()*a.length)|0];
+const cuShuffle = a=>a.slice().sort(()=>Math.random()-.5);
+
+/* ícones pixel art 7x7 dos ingredientes (usados no balão do pedido) */
+const CU_ICONS = {
+  refri:{pal:{y:"#ffd43b",w:"#ffffff",r:"#d62828",d:"#8f1616"},map:["...y...","..yw...",".wwwww.",".rrrrr.",".rwrwr.","..rrr..","..ddd.."]},
+  suco:{pal:{g:"#2f9e44",w:"#ffffff",o:"#f4772e",d:"#b34a10"},map:["..g....",".wwwww.",".ooooo.",".owooo.",".ooooo.","..ooo..","..ddd.."]},
+  milkshake:{pal:{r:"#d62828",w:"#ffffff",p:"#f4a0c0",d:"#b85a80"},map:["...r...",".wwwww.",".ppppp.",".ppwpp.",".ppppp.","..ppp..","..ddd.."]},
+  molho:{pal:{r:"#d62828",d:"#8f1616",g:"#2f9e44",h:"#ff8a8a"},
+    map:["..g.g..",".rrrrr.","rrhrrrr","rrrrrrr","rrrrrrd",".rrrrd.","..ddd.."]},
+  queijo:{pal:{y:"#ffd43b",d:"#d99b00",o:"#b87800"},
+    map:["y......","yyy....","yoyyy..","yyyyyy.","yyyoyyy","yyyyyyy","ddddddd"]},
+  calabresa:{pal:{r:"#b83a24",d:"#6e1d10",h:"#e0674c"},
+    map:[".ddddd.","drrrrrd","drhrrrd","drrrrrd","drrrhrd","drrrrrd",".ddddd."]},
+  azeitona:{pal:{d:"#1f3d1f",g:"#3d7a3d",r:"#d62828"},
+    map:[".ddddd.","dgggggd","dgrrrgd","dgrdrgd","dgrrrgd","dgggggd",".ddddd."]}
+};
+function cuIcon(g,key,x,y,u){
+  const ic=CU_ICONS[key]; if(!ic) return;
+  ic.map.forEach((row,ry)=>{ for(let rx=0;rx<7;rx++){ const ch=row[rx]; if(ch!=="."&&ic.pal[ch]) R(g,x+rx*u,y+ry*u,u,u,ic.pal[ch]); } });
+}
+
+/* pizza com fatias já comidas (8 fatias, sentido horário a partir do topo) */
+function cuPizzaBite(base,eaten){
+  const N=base.width, cv=mkCanvas(N,N), g=cv.getContext("2d");
+  g.imageSmoothingEnabled=false; g.drawImage(base,0,0);
+  if(eaten<=0) return cv;
+  const id=g.getImageData(0,0,N,N), d=id.data, c0=(N-1)/2;
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    let a=Math.atan2(y-c0,x-c0)+Math.PI/2; if(a<0) a+=Math.PI*2;
+    if(Math.floor(a/(Math.PI/4))<eaten) d[(y*N+x)*4+3]=0;
+  }
+  g.putImageData(id,0,0);
+  return cv;
+}
+
+/* fatia na mão (ponta para cima) */
+function cuSlice(g,x,y,order){
+  const ws=[2,4,6,7,9,10,12,13,13];
+  for(let r=0;r<9;r++) R(g,x-(ws[r]>>1)-2,y-9+r*2,ws[r]+4,2,"#1a0f08");
+  for(let r=0;r<9;r++){
+    const w=ws[r], col = r>=7 ? "#d9a066" : (order&&order.queijo ? "#ffd43b" : "#d62828");
+    R(g,x-(w>>1),y-9+r*2,w,2,col);
+  }
+  if(order&&order.calabresa){ R(g,x-1,y-3,3,3,"#a6321f"); R(g,x+2,y+3,3,3,"#a6321f"); }
+  if(order&&order.azeitona){ R(g,x-4,y+2,2,2,"#2f5a2f"); R(g,x+1,y-1,2,2,"#2f5a2f"); }
+}
+
+/* balão de fala pixel art: cauda para baixo, apontando para a cabeça do cliente */
+function cuBubbleBox(g,x,y,w,h,tipX){
+  const INK="#1a0f08", FILL="#fffaf0";
+  R(g,x-3,y-3,w+6,h+6,INK);
+  R(g,x,y,w,h,FILL);
+  R(g,x,y+h-3,w,3,"#ecd9b0");
+  const t=Math.round(Math.min(Math.max(tipX-2,x+6),x+w-10));
+  R(g,t,y+h,4,3,FILL);
+  R(g,t-3,y+h+3,10,3,INK); R(g,t,y+h+3,4,3,FILL);
+  R(g,t,y+h+6,4,3,INK);
+}
+function cuAnchor(c){ return {x:Math.round(c.x), y:Math.round(c.y-72)}; }   // logo acima da cabeça
+function cuBubblePos(c,w,h){
+  const a=cuAnchor(c);
+  return { x:Math.round(Math.min(Math.max(a.x-w/2,10),960-w-10)), y:a.y-10-h, tip:a.x };
+}
+function cuSayBubble(g,c){
+  g.save();
+  g.font="bold 11px monospace"; g.textAlign="left"; g.textBaseline="alphabetic";
+  const tw=Math.ceil(g.measureText(c.say.text).width), w=tw+16, h=22;
+  const p=cuBubblePos(c,w,h);
+  cuBubbleBox(g,p.x,p.y,w,h,p.tip);
+  g.fillStyle=c.say.col||"#1a0f08"; g.fillText(c.say.text,p.x+8,p.y+15);
+  g.restore();
+}
+function cuOrderBubble(g,c){
+  const items=Object.keys(c.order).filter(k=>c.order[k]);
+  const name=c.name+":", full=name+" "+c.greet;
+  g.save();
+  g.font="bold 11px monospace"; g.textAlign="left"; g.textBaseline="alphabetic";
+  const cellW=56;
+  const w=Math.ceil(Math.max(g.measureText(full).width, items.length*cellW))+20, h=56;
+  const p=cuBubblePos(c,w,h), x=p.x, y=p.y;
+  cuBubbleBox(g,x,y,w,h,p.tip);
+  const n=Math.floor(c.typed), sub=full.slice(0,n);
+  const red=sub.slice(0,name.length), rest=sub.slice(name.length);
+  g.fillStyle="#a02020"; g.fillText(red,x+10,y+16);
+  g.fillStyle="#1a0f08"; g.fillText(rest,x+10+g.measureText(red).width,y+16);
+  if(c.state==="ordering" && n<full.length && Math.floor(c.t/8)%2){
+    g.fillRect(x+10+g.measureText(sub).width+1,y+8,2,9);
+  }
+  if(n>=full.length){
+    const count=c.state==="waitFood" ? items.length : Math.min(items.length,Math.ceil(c.iconT/16));
+    g.font="bold 9px monospace"; g.textAlign="center";
+    for(let i=0;i<count;i++){
+      const cx=x+10+i*cellW+cellW/2;
+      const pop = (c.state==="ordering" && i===count-1) ? Math.max(0,3-((c.iconT-i*16)>>1)) : 0;
+      cuIcon(g,items[i],Math.round(cx-7),y+22-pop,2);
+      g.fillStyle="#4e3620"; g.fillText(ING_INFO[items[i]].label,cx,y+50);
+    }
+  }
+  g.restore();
+}
+function cuAttention(g,c){
+  const bob=Math.round(Math.sin(c.t/9)*2);
+  const p=cuBubblePos(c,22,22);
+  g.save();
+  cuBubbleBox(g,p.x,p.y+bob,22,22,p.tip);
+  g.fillStyle="#d62828"; g.font="bold 15px monospace"; g.textAlign="center"; g.textBaseline="alphabetic";
+  g.fillText("!",p.x+11,p.y+bob+17);
+  g.restore();
+}
+
+/* dinheiro deixado na mesa (cédula + moeda) */
+function cuMoney(g,x,y,age){
+  y-=Math.max(0,8-(age>>1));          // "pulinho" quando o dinheiro cai na mesa
+  OR(g,x-14,y,26,13,"#4fae5a","#1a0f08",2);
+  R(g,x-11,y+3,20,2,"#7ad486"); R(g,x-3,y+5,6,5,"#1f6b2a"); R(g,x-1,y+4,2,7,"#1f6b2a");
+  OR(g,x+6,y+7,11,11,"#ffd43b","#1a0f08",2); R(g,x+9,y+9,4,7,"#d99b00");
+}
+/* balãozinho "$" flutuando sobre a mesa quando há dinheiro para pegar */
+function cuMoneyTag(g,ti,s){
+  const t=TABLE_LIST[ti], bob=Math.round(Math.sin(s.age/9)*2);
+  const x=t.x+TABLE_W/2-11, y=t.y-34+bob;
+  g.save();
+  cuBubbleBox(g,x,y,22,22,t.x+TABLE_W/2);
+  g.fillStyle="#1f8a35"; g.font="bold 15px monospace"; g.textAlign="center"; g.textBaseline="alphabetic";
+  g.fillText("$",x+11,y+17);
+  g.restore();
+}
+
+/* posição da mão que leva a fatia à boca */
+function cuHand(c){
+  const P=CUST_BITE, et=Math.max(1,c.et), k=Math.floor((et-1)/P), ph=((et-1)%P)/P, s=c.face||1;
+  const H0={x:c.x+10*s,y:c.y-12}, H1={x:c.x+3*s,y:c.y-37};
+  if(k>=CUST_EATEN.length) return {x:H0.x,y:H0.y,slice:false,chew:false};
+  let t;
+  if(ph<0.28) t=ph/0.28; else if(ph<0.62) t=1; else if(ph<0.9) t=1-(ph-0.62)/0.28; else t=0;
+  t=t*t*(3-2*t);
+  return {x:H0.x+(H1.x-H0.x)*t, y:H0.y+(H1.y-H0.y)*t, slice:ph<0.3, chew:ph>=0.3&&ph<0.62};
+}
+function cuArm(g,sx,sy,hx,hy){
+  const SKIN="#f7cbb0", INK="#1a0f08";
+  for(let pass=0;pass<2;pass++){
+    for(let i=0;i<=7;i++){
+      const x=Math.round(sx+(hx-sx)*i/7), y=Math.round(sy+(hy-sy)*i/7);
+      if(pass===0) R(g,x-3,y-3,6,6,INK); else R(g,x-2,y-2,4,4,SKIN);
+    }
+  }
+}
+
+function cuSprite(g,c){
+  const st=c.st, INK="#1a0f08", SKIN="#f7cbb0";
+  const cx=Math.round(c.x+(c.shake>0 ? Math.sin(c.shake*1.1)*2 : 0));
+  const step=c.walking ? (Math.floor(c.walk)%2) : 0;
+  const sit=!!c.seated;
+  const idle=(!c.walking && (c.state==="waiting"||c.state==="waitFood")) ? (Math.floor(c.t/28)%2) : 0;
+  const by=c.y, y=by+(c.walking ? (step?-1:0) : -idle);
+  const eating=(c.state==="eating"), hand=eating ? cuHand(c) : null;
+  const waving=(c.state==="finishing");
+  const s=(sit && c.face) ? c.face : 1;      // lado do corpo voltado para a mesa
+
+  if(sit){
+    OR(g,s===1?cx-4:cx-10,y-14,14,9,st.pants,INK,2);     // pernas dobradas apontando para a mesa
+  } else {
+    g.fillStyle="rgba(26,15,8,.28)"; g.fillRect(cx-14,by-3,28,6);
+    const lA=c.walking?(step?4:0):0, lB=c.walking?(step?0:4):0;
+    OR(g,cx-9,by-14-lA,7,12,st.pants,INK,2); OR(g,cx+2,by-14-lB,7,12,st.pants,INK,2);
+  }
+  OR(g,cx-12,y-34,24,22,st.shirt,INK,3);
+
+  // braços
+  const sw=c.walking?(step?-2:2):0;
+  if(eating||waving){
+    if(s===1) R(g,cx-15,y-32+sw,3,14,SKIN); else R(g,cx+12,y-32-sw,3,14,SKIN);
+    const sx=(s===1)?cx+12:cx-12;
+    if(eating) cuArm(g,sx,y-30,hand.x,hand.y);
+    else cuArm(g,sx,y-30,cx+s*(19+((Math.floor(c.ft/7)%2)?3:-1)),y-56);
+  } else {
+    R(g,cx-15,y-32+sw,3,14,SKIN);
+    R(g,cx+12,y-32-sw,3,14,SKIN);
+  }
+
+  // cabeça e cabelo
+  OR(g,cx-11,y-58,22,22,SKIN,INK,3);
+  R(g,cx-11,y-58,22,8,st.hair); R(g,cx-11,y-52,4,8,st.hair); R(g,cx+7,y-52,4,8,st.hair);
+  if(c.long){ R(g,cx-12,y-52,4,22,st.hair); R(g,cx+8,y-52,4,22,st.hair); }
+
+  // acessórios
+  if(c.acc==="cap"){ R(g,cx-12,y-63,24,7,c.accCol); R(g,cx-14,y-57,28,3,INK); R(g,cx-4,y-61,8,2,"#ffffff"); }
+  if(c.acc==="beanie"){ R(g,cx-12,y-64,24,10,c.accCol); R(g,cx-12,y-60,24,2,"#ffffff"); R(g,cx-3,y-69,6,5,"#ffffff"); }
+  if(c.acc==="bow"){ R(g,cx+5,y-63,9,6,"#e8508a"); R(g,cx+8,y-61,3,2,"#a02060"); }
+  if(c.acc==="glasses"){
+    R(g,cx-9,y-48,7,6,INK); R(g,cx-8,y-47,5,4,"#cfe9ff");
+    R(g,cx+2,y-48,7,6,INK); R(g,cx+3,y-47,5,4,"#cfe9ff");
+    R(g,cx-2,y-47,4,2,INK);
+  }
+
+  // olhos
+  const ex=c.dir*2, blink=(dinerAnimTick%170)<6;
+  if(blink){ R(g,cx-6+ex,y-45,3,1,INK); R(g,cx+3+ex,y-45,3,1,INK); }
+  else { R(g,cx-6+ex,y-46,3,4,INK); R(g,cx+3+ex,y-46,3,4,INK); }
+  if(c.angry>0){
+    R(g,cx-8,y-51,3,2,INK); R(g,cx-5,y-49,3,2,INK);
+    R(g,cx+5,y-51,3,2,INK); R(g,cx+2,y-49,3,2,INK);
+  }
+
+  // boca
+  const happy=(c.state==="receiving"||c.state==="finishing");
+  if(c.angry>0){ R(g,cx-4,y-39,8,2,"#7a3a20"); R(g,cx-5,y-38,2,2,"#7a3a20"); R(g,cx+3,y-38,2,2,"#7a3a20"); }
+  else if(c.talking && Math.floor(c.t/5)%2){ R(g,cx-3,y-41,6,4,"#5a1010"); }
+  else if(eating && hand.chew){
+    R(g,cx-9,y-43,3,3,"#f2a090"); R(g,cx+6,y-43,3,3,"#f2a090");
+    if(Math.floor(c.et/5)%2) R(g,cx-3,y-41,6,4,"#5a1010"); else R(g,cx-3,y-40,6,2,"#a05030");
+  }
+  else if(happy||eating){ R(g,cx-5,y-40,10,3,"#a02020"); }
+  else R(g,cx-2,y-40,4,2,"#a05030");
+
+  if(hand && hand.slice) cuSlice(g,Math.round(hand.x),Math.round(hand.y)-4,c.order);
+
+  // coração (feliz), ao lado da cabeça / marca de raiva
+  if(happy){
+    const heart=["0110110","1111111","1111111","0111110","0011100","0001000"];
+    const hx=cx+s*20-10, hy=y-66-(Math.floor(c.t/10)%2);
+    heart.forEach((row,ry)=>{ for(let rx=0;rx<7;rx++){ if(row[rx]==="1") R(g,hx+rx*3,hy+ry*3,3,3,"#e8343a"); } });
+  }
+  if(c.angry>0 && (Math.floor(c.angry/6)%2)){ R(g,cx+9,y-68,3,9,"#e8343a"); R(g,cx+6,y-65,9,3,"#e8343a"); }
+
+  // migalhas
+  c.parts.forEach(p=>{ R(g,Math.round(p.x),Math.round(p.y),3,3,p.col); });
+}
+
+/* lugar na mesa: side -1 = cadeira da esquerda, +1 = da direita; row 0 = cadeira de cima, 1 = de baixo */
+function cuSeat(ti,side,row){
+  const t=TABLE_LIST[ti], chairY=t.y+(row?64:10);
+  return {
+    ti:ti, side:side, row:row,
+    sx: side<0 ? t.x-13 : t.x+TABLE_W+14,      // onde o cliente fica sentado
+    sy: chairY+34,
+    ax: side<0 ? t.x-54 : t.x+TABLE_W+54,      // onde ele para em pé antes de sentar
+    ay: chairY+26
+  };
+}
+
+const CUST = {
+  list:[], tables:[], spawnCd:0, styleBag:[], nameBag:[],
+
+  make(seat){
+    if(!this.styleBag.length) this.styleBag = cuShuffle(KID_STYLES.map((_,i)=>i));
+    if(!this.nameBag.length) this.nameBag = cuShuffle(CUST_NAMES);
+    return {
+      x:DOOR_X, y:AISLE_Y, st:KID_STYLES[this.styleBag.pop()], name:this.nameBag.pop(),
+      acc:cuPick(["none","cap","glasses","bow","beanie","none"]), accCol:cuPick(CUST_CAPS), long:Math.random()<.4,
+      seat:seat, face:-seat.side,
+      path:[[seat.ax,AISLE_Y],[seat.ax,seat.ay]], pi:0, seated:false,
+      dir:1, state:"entering", t:0, walk:0, walking:false, talking:false, sitT:0, fx0:0, fy0:0,
+      order:null, greet:"", typed:0, iconT:0,
+      say:null, sayT:0, shake:0, angry:0,
+      pizza:null, pizzaImg:null, rt:0, et:0, ft:0, eaten:0, biteDone:-1,
+      parts:[], fx:[]
+    };
+  },
+  maxNow(){ return Math.min(TABLE_LIST.length, 1+(G.phase||1)+(G.up.ads>0?1:0)); },
+  spawn(){
+    const free=[];
+    this.tables.forEach((s,i)=>{ if(!s.cust && s.money===0) free.push(i); });
+    if(!free.length) return false;
+    const ti=cuPick(free), side=Math.random()<.5?-1:1, row=Math.random()<.5?0:1;
+    const c=this.make(cuSeat(ti,side,row));
+    this.tables[ti].cust=c;            // já reserva a mesa
+    this.list.push(c);
+    SFX.bell();
+    return true;
+  },
+  reset(){
+    this.list=[];
+    this.tables=TABLE_LIST.map(()=>({cust:null, money:0, age:0, row:0}));
+    this.spawn();
+    this.spawnCd=190;
+  },
+  atTable(c){ return c.state!=="entering" && c.state!=="leaving"; },
+  orderCust(){ return this.list.find(c=>(c.state==="ordering"||c.state==="waitFood") && !c.emp) || null; },
+  ready(){ return this.list.some(c=>c.state==="waiting"); },
+  moneyReady(ti){ const s=this.tables[ti]; return !!s && s.money>0 && s.age>=24; },
+  collect(ti){
+    if(!this.moneyReady(ti)) return 0;
+    const s=this.tables[ti], m=s.money; s.money=0; s.age=0; return m;
+  },
+
+  takeOrder(c,order){
+    if(!c || c.state!=="waiting") return;
+    c.order=Object.assign({},order); c.greet=cuPick(CUST_TXT.greet);
+    c.typed=0; c.iconT=0; c.t=0; c.say=null; c.state="ordering";
+  },
+  onDelivered(order,c0){
+    const c=c0||this.orderCust(); if(!c) return;
+    c.order=Object.assign({},order);
+    c.pizza=makePizzaCanvas(c.order,44,false); c.pizzaImg=c.pizza; c.eaten=0; c.biteDone=-1;
+    c.say={text:cuPick(CUST_TXT.thanks),col:"#1b7a34"}; c.sayT=70;
+    c.angry=0; c.state="receiving"; c.rt=0; c.et=0; c.ft=0; c.t=0; c.dir=c.face;
+  },
+  onWrong(){
+    const c=this.orderCust(); if(!c) return;
+    c.angry=70; c.shake=36;
+    c.say={text:cuPick(CUST_TXT.wrong),col:"#c92a2a"}; c.sayT=75;
+  },
+
+  /* anda pelos pontos do caminho; devolve true ao chegar no último */
+  walk(c){
+    const w=c.path[c.pi];
+    if(!w) return true;
+    const dx=w[0]-c.x, dy=w[1]-c.y, d=Math.hypot(dx,dy);
+    if(d<=CUST_SPEED){ c.x=w[0]; c.y=w[1]; c.pi++; return c.pi>=c.path.length; }
+    c.x+=dx/d*CUST_SPEED; c.y+=dy/d*CUST_SPEED;
+    c.dir=Math.abs(dx)>0.5 ? Math.sign(dx) : 0;
+    c.walking=true; c.walk+=0.22;
+    return false;
+  },
+
+  update(){
+    const L=this.list;
+
+    // novos clientes entram pela porta e vão para uma mesa vazia
+    const alive=L.filter(c=>c.state!=="leaving");
+    if(alive.length<this.maxNow()){
+      if(--this.spawnCd<=0){
+        if(this.spawn()) this.spawnCd=Math.round((170+((Math.random()*130)|0))*(G.rushLeft>0?0.5:1)*Math.pow(0.8,G.up.ads)); else this.spawnCd=60;
+      }
+    } else if(this.spawnCd<60) this.spawnCd=60;
+
+    // dinheiro esperando na mesa
+    this.tables.forEach(s=>{ if(s.money>0) s.age++; });
+
+    for(let i=L.length-1;i>=0;i--){
+      const c=L[i];
+      c.t++; c.walking=false; c.talking=false;
+      if(c.say && --c.sayT<=0) c.say=null;
+      if(c.shake>0) c.shake--;
+      if(c.angry>0) c.angry--;
+      c.parts.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=0.18; p.life--; });
+      c.parts=c.parts.filter(p=>p.life>0);
+      c.fx.forEach(f=>{ f.y-=0.5; f.life--; });
+      c.fx=c.fx.filter(f=>f.life>0);
+
+      switch(c.state){
+        case "entering": {
+          if(this.walk(c)){ c.state="sitting"; c.sitT=0; c.fx0=c.x; c.fy0=c.y; c.dir=c.face; c.t=0; }
+          break;
+        }
+        case "sitting": {            // puxa a cadeira e senta
+          c.sitT++;
+          const p=Math.min(1,c.sitT/18), e=p*p*(3-2*p);
+          c.x=c.fx0+(c.seat.sx-c.fx0)*e; c.y=c.fy0+(c.seat.sy-c.fy0)*e;
+          if(p>=.5) c.seated=true;
+          if(p>=1){ c.state="waiting"; c.t=0; }
+          break;
+        }
+        case "ordering": {
+          const full=c.name+": "+c.greet, items=Object.keys(c.order).filter(k=>c.order[k]).length;
+          if(c.typed<full.length){
+            const before=Math.floor(c.typed);
+            c.typed=Math.min(full.length,c.typed+0.6); c.talking=true;
+            if(Math.floor(c.typed)!==before && Math.floor(c.typed)%2===0) SFX.blip();
+          } else {
+            const before=Math.ceil(c.iconT/16);
+            c.iconT++;
+            if(Math.ceil(c.iconT/16)!==before && before<items) SFX.place();
+            if(c.iconT>=items*16+10){ c.state="waitFood"; c.t=0; }
+          }
+          break;
+        }
+        case "receiving": {
+          c.rt++;
+          if(c.rt>=34){ c.state="eating"; c.et=0; }
+          break;
+        }
+        case "eating": {
+          const P=CUST_BITE; c.et++;
+          const k=Math.floor((c.et-1)/P), ph=((c.et-1)%P)/P;
+          if(k<CUST_EATEN.length && ph>=0.3 && c.biteDone<k){
+            c.biteDone=k; c.eaten=CUST_EATEN[k];
+            c.pizzaImg=cuPizzaBite(c.pizza,c.eaten);
+            SFX.munch();
+            for(let n=0;n<6;n++) c.parts.push({x:c.x+uiRnd(-4,4),y:c.y-38,vx:uiRnd(-1.6,1.6),vy:uiRnd(-2.6,-0.8),life:26,col:cuPick(["#e5ac7e","#ffd43b","#c92a2a"])});
+            c.fx.push({txt:(k%2?"MMM~":"NHAC!"),x:c.x+(c.face>0?18:-46),y:c.y-62,life:30});
+          } else if(k<CUST_EATEN.length && ph>=0.45 && ph<0.62 && c.et%9===0) SFX.munch();
+          if(c.et>=P*CUST_EATEN.length+6){
+            c.state="finishing"; c.ft=0; c.t=0;
+            c.say={text:cuPick(CUST_TXT.bye),col:"#1a0f08"}; c.sayT=42;
+            SFX.ready();
+          }
+          break;
+        }
+        case "finishing": {          // acena e deixa o dinheiro na mesa
+          c.ft++;
+          if(c.ft===24){
+            const s=this.tables[c.seat.ti];
+            s.money=c.pay||CUST_PRICE; s.age=0; s.row=c.seat.row;
+            SFX.place();
+          }
+          if(c.ft>=46){
+            c.state="standing"; c.sitT=0; c.say=null; c.fx0=c.x; c.fy0=c.y; c.t=0;
+            this.tables[c.seat.ti].cust=null;     // a mesa só fica livre depois que o dinheiro for pego
+          }
+          break;
+        }
+        case "standing": {           // levanta da cadeira
+          c.sitT++;
+          const p=Math.min(1,c.sitT/14), e=p*p*(3-2*p);
+          c.x=c.fx0+(c.seat.ax-c.fx0)*e; c.y=c.fy0+(c.seat.ay-c.fy0)*e;
+          if(p>=.5) c.seated=false;
+          if(p>=1){ c.state="leaving"; c.path=[[c.seat.ax,AISLE_Y],[DOOR_X,AISLE_Y]]; c.pi=0; c.dir=-c.face; }
+          break;
+        }
+        case "leaving": {
+          if(this.walk(c)) L.splice(i,1);
+          break;
+        }
+        default: break;   // waiting / waitFood: parado, só respira
+      }
+    }
+  },
+
+  /* tudo que fica "na mesa": pizza, dinheiro e o cliente sentado (desenhado junto com a mesa) */
+  drawTable(g,ti){
+    const t=TABLE_LIST[ti], s=this.tables[ti], c=s.cust;
+    g.imageSmoothingEnabled=false;
+    if(c && c.pizzaImg){
+      const px=t.x+8, py=t.y+(c.seat.row?58:8);
+      if(c.state==="receiving"){
+        const p=Math.min(1,c.rt/24), e=1-Math.pow(1-p,3);
+        g.drawImage(c.pizzaImg,px,Math.round(py-56*(1-e)),44,44);
+      } else if(c.state==="eating" && c.eaten<8){
+        g.drawImage(c.pizzaImg,px,py,44,44);
+      }
+    }
+    if(c && c.order && (c.state==="receiving"||c.state==="eating")){
+      const dk=DRINK_KEYS.find(k=>c.order[k]);
+      if(dk) drawTableCup(g,t.x+49,t.y+(c.seat.row?58:8)+30,ING_INFO[dk].cup);
+    }
+    if(s.money>0) cuMoney(g,t.x+TABLE_W/2-2,t.y+(s.row?76:28),s.age);
+    this.list.forEach(cu=>{ if(cu.seat.ti===ti && this.atTable(cu)) cuSprite(g,cu); });
+  },
+  drawBubbles(g){
+    this.list.forEach(c=>{
+      if(!c.seated) return;
+      if(c.say) cuSayBubble(g,c);
+      else if(c.state==="ordering"||c.state==="waitFood") cuOrderBubble(g,c);
+      else if(c.state==="waiting") cuAttention(g,c);
+      if(c.fx.length){
+        g.save(); g.font="bold 10px monospace"; g.textAlign="left"; g.textBaseline="alphabetic";
+        c.fx.forEach(f=>{ g.fillStyle="#1a0f08"; g.fillText(f.txt,f.x+1,f.y+1); g.fillStyle="#ffd34a"; g.fillText(f.txt,f.x,f.y); });
+        g.restore();
+      }
+    });
+    this.tables.forEach((s,ti)=>{ if(s.money>0 && s.age>=18) cuMoneyTag(g,ti,s); });
+  }
+};
+
+/* ---------- AJUDANTE: contratado na loja, faz tudo que o jogador faz, só que devagar ---------- */
+const EMP_WAGE=12;   // $ por minuto
+const EMP_STAND=[{x:150,y:420},{x:450,y:480},{x:730,y:400}], EMP_KITCHEN={x:856,y:480};
+function payWage(){
+  if(!G.emp.hired) return;
+  G.emp.acc+=EMP_WAGE/60;
+  while(G.emp.acc>=1){
+    if(G.money>=1){ G.money--; G.emp.acc--; }
+    else { G.emp.hired=false; G.emp.acc=0; showMessage('Sem dinheiro para pagar o ajudante! Ele pediu demissão.',2800,false,PR.RESULT,'err'); break; }
+  }
+}
+const EMP={
+  x:856,y:480,w:34,h:46,speed:1.15,dir:'left',walking:false,wf:0,active:false,
+  state:'idle',path:[],cust:null,order:null,carry:false,timer:0,tgt:-1,
+  reset(){ this.active=G.emp.hired; Object.assign(this,{x:856,y:480,dir:'left',state:'idle',path:[],cust:null,order:null,carry:false,timer:0,tgt:-1,walking:false}); },
+  go(p){ const pts=[]; if(Math.abs(this.y-480)>1) pts.push([this.x,480]); pts.push([p.x,480]); if(p.y!==480) pts.push([p.x,p.y]); this.path=pts; },
+  move(){
+    const w=this.path[0]; if(!w) return true;
+    const dx=w[0]-this.x, dy=w[1]-this.y, d=Math.hypot(dx,dy);
+    if(d<=this.speed){ this.x=w[0]; this.y=w[1]; this.path.shift(); return this.path.length===0; }
+    this.x+=dx/d*this.speed; this.y+=dy/d*this.speed; this.walking=true; this.wf+=0.12;
+    this.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');
+    return false;
+  },
+  update(){
+    if(!G.emp.hired){ this.active=false; return; }
+    if(!this.active) this.reset();
+    this.walking=false;
+    switch(this.state){
+      case 'idle': {
+        let mt=-1; for(let i=0;i<TABLE_LIST.length;i++){ if(CUST.moneyReady(i)){ mt=i; break; } }
+        if(mt>=0){ this.tgt=mt; this.state='toMoney'; this.go(EMP_STAND[mt]); break; }
+        const c=CUST.list.find(c=>c.state==='waiting' && !c.emp);
+        if(c){ c.emp=true; this.cust=c; this.state='toCust'; this.go(EMP_STAND[c.seat.ti]); }
+        break; }
+      case 'toMoney': if(this.move()){ collectMoney(this.tgt); this.state='idle'; } break;
+      case 'toCust': if(this.move()){
+        const c=this.cust;
+        if(c.state==='waiting'){ this.order=generateOrder(); CUST.takeOrder(c,this.order); c.pay=calcPay(this.order); SFX.order(); this.state='toKitchen'; this.go(EMP_KITCHEN); }
+        else { c.emp=false; this.cust=null; this.state='idle'; }
+      } break;
+      case 'toKitchen': if(this.move()){ this.state='cooking'; this.timer=300; } break;
+      case 'cooking': if(--this.timer<=0){ this.carry=true; SFX.ready(); this.state='toTable'; this.go(EMP_STAND[this.cust.seat.ti]); } break;
+      case 'toTable': if(this.move()) this.state='waitServe'; break;
+      case 'waitServe': if(this.cust.state==='waitFood'){
+        CUST.onDelivered(this.order,this.cust); SFX.deliverSuccess();
+        this.carry=false; this.cust=null; this.order=null; this.state='idle';
+      } break;
+    }
+  },
+  draw(g){
+    const cx=this.x+this.w/2;
+    drawChibiSprite(g,cx,this.y+this.h,2.65,G.character==='male'?'female':'male',this.dir,this.walking?this.wf:0,this.carry);
+    g.save(); g.font='bold 10px monospace'; g.textAlign='center';
+    g.fillStyle='#1a0f08'; g.fillText('AJUDANTE',cx+1,this.y-5);
+    g.fillStyle='#ffd34a'; g.fillText('AJUDANTE',cx,this.y-6);
+    g.restore();
+  }
+};
+
+/* ---------- desenho da cena com ordenação por profundidade (pés no chão) ---------- */
+function drawScene(){
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(BG,0,0);
+  drawCounter(ctx);
+  const items=[];
+  TABLE_LIST.forEach((t,i)=>{
+    items.push({y:t.y+TABLE_H+6, draw:()=>{
+      ctx.drawImage(TABLE_CANVASES[i],t.x-34,t.y-36);
+      CUST.drawTable(ctx,i);
+    }});
+  });
+  // clientes andando (entrando / saindo)
+  CUST.list.forEach(c=>{
+    if(!CUST.atTable(c)) items.push({y:c.y, draw:()=>cuSprite(ctx,c)});
+  });
+  items.push({y:PLANT.y+PLANT.h, draw:()=>drawPlant(ctx,PLANT.x,PLANT.y)});
+  items.push({
+    y:player.y+player.h,
+    draw:()=>drawChibiSprite(
+      ctx,
+      player.x+player.w/2,
+      player.y+player.h,
+      2.65,
+      G.character,
+      player.dir,
+      player.walking ? walkFrame : 0,
+      G.carryingPizza
+    )
+  });
+  if(G.emp.hired && EMP.active) items.push({y:EMP.y+EMP.h, draw:()=>EMP.draw(ctx)});
+  items.sort((a,b)=>a.y-b.y).forEach(it=>it.draw());
+  CUST.drawBubbles(ctx);
+}
+
+
+/* =========================================================
+   ORDER GENERATION
+========================================================= */
+function generateOrder(){
+  const order={}; ALL_KEYS.forEach(k=>order[k]=false); order.molho=true;
+  PIZZA_KEYS.forEach(k=>{ if(k!=="molho" && G.unlocked.includes(k)) order[k]=Math.random()<0.65; });
+  const dr=DRINK_KEYS.filter(k=>G.unlocked.includes(k));
+  if(dr.length && Math.random()<0.6) order[cuPick(dr)]=true;
+  return order;
+}
+function calcPay(order){
+  let p=10+2*G.up.tip;                       // pizza só com molho: $10
+  Object.keys(order).forEach(k=>{ if(order[k] && k!=="molho") p+=ING_INFO[k].drink?6:5; });  // +$5 por ingrediente, +$6 por bebida
+  if(G.rushLeft>0) p=Math.round(p*1.5);      // hora do rush
+  return p;
+}
+function startRush(){
+  G.rushLeft=20; SFX.bell(); CUST.spawnCd=Math.min(CUST.spawnCd,20);
+  showMessage("🔥 HORA DO RUSH! Pedidos pagam +50% por 20s!",2600,false,PR.DELIVERY);
+}
+function orderLabel(order){
+  const parts=[];
+  Object.keys(order).forEach(k=>{
+    if(order[k]) parts.push(ING_INFO[k].emoji+" "+ING_INFO[k].label);
+  });
+  return parts.join(" + ");
+}
+
+/* =========================================================
+   HUD UPDATE
+========================================================= */
+function fmtTime(sec){
+  const m = Math.floor(sec/60).toString().padStart(2,"0");
+  const s = Math.floor(sec%60).toString().padStart(2,"0");
+  return m+":"+s;
+}
+function updateHUD(){
+  $("hud-phase").textContent = G.phase;
+  $("hud-timer").textContent = fmtTime(G.timeLeft)+(G.rushLeft>0?" 🔥RUSH":"");
+  $("k-timer").textContent = fmtTime(G.timeLeft)+(G.rushLeft>0?" 🔥RUSH":"");
+  $("k-phase").textContent = G.phase;
+  $("k-money").textContent = "$"+G.money;
+  $("hud-money").textContent = "Meta: $"+G.score+" / $"+PHASES[G.phase].minimumScore+"  •  Carteira: $"+G.money+(G.emp.hired?"  •  🧑‍🍳 -$"+EMP_WAGE+"/min":"");
+  let hearts="";
+  for(let i=0;i<G.maxAttempts;i++) hearts += (i<G.attempts? "❤️":"🖤");
+  $("hearts").innerHTML = hearts + " <span style='opacity:.8;font-size:11px;'>("+G.attempts+"/"+G.maxAttempts+")</span>";
+}
+
+function toast(text, x, y, color, withCoin){
+  const el = document.createElement("div");
+  el.className="toast";
+  if(withCoin){
+    const c = mkCanvas(22,22);
+    const cg = c.getContext("2d");
+    cg.imageSmoothingEnabled = false;
+    cg.drawImage(COIN_CANVAS, 0, 0, 22, 22);
+    el.appendChild(c);
+  }
+  const span = document.createElement("span");
+  span.textContent = text;
+  el.appendChild(span);
+  // posição em % do palco, para ficar certa mesmo quando a janela escala o jogo
+  el.style.left = (x/960*100)+"%"; el.style.top = (y/600*100)+"%";
+  el.style.color = color || "#fff";
+  $("toast-layer").appendChild(el);
+  setTimeout(()=>el.remove(), 1180);
+}
+let msgTimeout=null;
+function showMessage(text, ms, skipAnnounce, priority, styleType){
+  const el = $("msg-banner");
+  el.textContent = text;
+  el.classList.remove("err","ok");
+  if(styleType) el.classList.add(styleType);
+  el.classList.add("show");
+  clearTimeout(msgTimeout);
+  msgTimeout = setTimeout(()=>el.classList.remove("show"), ms||1600);
+  if(!skipAnnounce) announce(text, priority||PR.INFO);
+}
+
+/* =========================================================
+   FLOW: START -> CHAR SELECT
+========================================================= */
+function goCharSelect(){
+  G.state="CHAR_SELECT";
+  G.charSelectIndex=0;
+  hideAllOverlays();
+  showScreen("charselect");
+  updateCharSelectHighlight();
+  announceSeq([
+    "Iniciando seleção de funcionário.",
+    "Escolha seu funcionário.",
+    "Funcionário masculino está à esquerda.",
+    "Funcionária feminina está à direita.",
+    "Use a seta para esquerda ou a seta para direita para navegar, e pressione Enter ou E para confirmar."
+  ], PR.ORDER);
+}
+function updateCharSelectHighlight(){
+  $("card-male").classList.toggle("selected", G.charSelectIndex===0);
+  $("card-female").classList.toggle("selected", G.charSelectIndex===1);
+}
+function setCharSelectIndex(i){
+  if(G.charSelectIndex===i) return;
+  G.charSelectIndex=i;
+  updateCharSelectHighlight();
+  announce(i===0 ? "Funcionário masculino." : "Funcionária feminina.", PR.INTERACTION);
+}
+function confirmCharSelect(){
+  if(G.charSelectIndex===0){ $("card-male").click(); } else { $("card-female").click(); }
+}
+$("card-male").addEventListener("click",()=>{ SFX.click(); G.character="male"; announce("Funcionário masculino selecionado. Sua partida vai começar.", PR.RESULT); startNewGame(); });
+$("card-female").addEventListener("click",()=>{ SFX.click(); G.character="female"; announce("Funcionária feminina selecionada. Sua partida vai começar.", PR.RESULT); startNewGame(); });
+
+function startNewGame(){
+  G.totalScore=0; G.money=0;
+  G.up={speed:0,time:0,life:0,tip:0,ads:0};
+  G.emp={hired:false,acc:0};
+  G.phase=1;
+  G.unlocked=["molho","refri"];
+  startPhase(1);
+}
+
+/* =========================================================
+   PHASE LIFECYCLE
+========================================================= */
+function startPhase(n,retry){
+  G.phase=n;
+  G.score=0;
+  if(retry) G.money=G.walletStart; else G.walletStart=G.money;
+  G.maxAttempts=PHASES[n].attempts+G.up.life; G.attempts=G.maxAttempts;
+  G.ordersDelivered=0;
+  G.timeLeft=PHASES[n].time+G.up.time*15;
+  G.rushLeft=0; G.rushAt=Math.floor(G.timeLeft*0.5);
+  player.speed=2.7*(1+0.15*G.up.speed);
+  G.carryingPizza=false;
+  G.currentOrder=null;
+  G.alertedMinute=false; G.alerted30=false; G.alerted10=false;
+  G.winPending=false;
+  G.paused=false;
+  $("pause-overlay").classList.remove("show");
+  clearPizza();
+  resetPlayerPosition();
+  CUST.reset();
+  EMP.reset();
+  hideAllOverlays();
+  hud.style.display="flex";
+  G.state="PLAYING";
+  updateHUD();
+  buildIngredientButtons();
+  startTimer();
+  showMessage("FASE "+n+" — Atenda os clientes!", 1800, true);
+
+  const minutes = Math.round(PHASES[n].time/60);
+  const timeWord = minutes===1 ? "1 minuto" : minutes+" minutos";
+
+  if(n===1 && G.firstPlay){
+    G.firstPlay=false;
+    announceSeq([
+      "Bem-vindo ao Pizza Club.",
+      "Você controla um funcionário de uma pizzaria.",
+      "Use as setas ou W, A, S e D para caminhar.",
+      "Os clientes entram pela porta, à esquerda, e sentam em uma mesa vazia.",
+      "Quando um cliente sentar, uma exclamação aparece sobre a cabeça dele. Caminhe até a mesa dele.",
+      "Quando estiver perto da mesa, pressione E para atender.",
+      "Depois de receber o pedido, vá até a cozinha.",
+      "Na cozinha, selecione os ingredientes e a bebida solicitados.",
+      "Quando terminar, pressione Pronto.",
+      "Depois, leve a pizza até a mesa do cliente.",
+      "Ao chegar perto da mesa, a pizza será entregue automaticamente.",
+      "Depois que ele comer, ele deixa o dinheiro na mesa. Passe perto da mesa para pegar o dinheiro.",
+      "Complete todos os pedidos antes que o tempo termine.",
+      "A qualquer momento, pressione R para repetir o pedido, H para ouvir a ajuda, ou M para ligar e desligar a locução.",
+      "Boa sorte!",
+      "Sua partida iniciou.",
+      "Fase 1. Você tem "+timeWord+" e "+PHASES[n].attempts+" tentativas.",
+      "Você precisa fazer "+PHASES[n].minimumScore+" pontos.",
+      "O valor de cada pedido depende da quantidade de ingredientes e bebidas: quanto mais itens, mais ele paga.",
+      "Faça o primeiro pedido.",
+      "Você está na área de atendimento."
+    ], PR.ORDER);
+  } else {
+    announceSeq([
+      "Fase "+n+" iniciada.",
+      "Você tem "+timeWord+" e "+PHASES[n].attempts+" tentativas.",
+      "Você precisa fazer "+PHASES[n].minimumScore+" pontos.",
+      "Você está na área de atendimento. Os clientes entram pela porta, à esquerda, e sentam nas mesas. A entrada da cozinha fica no canto inferior direito.",
+      "Caminhe até um cliente sentado e pressione E para atender."
+    ], PR.ORDER);
+  }
+}
+
+function startTimer(){
+  clearInterval(G.timerHandle);
+  G.timerHandle = setInterval(()=>{
+    if(G.state!=="PLAYING" && G.state!=="KITCHEN") return;
+    if(G.paused) return;
+    G.timeLeft--;
+    if(G.rushLeft>0 && --G.rushLeft===0) showMessage("O rush acabou.",1500,true);
+    if(G.rushAt>0 && G.timeLeft===G.rushAt) startRush();
+    payWage();
+    updateHUD();
+    if(G.timeLeft===60 && !G.alertedMinute){ G.alertedMinute=true; announce("Atenção. Falta 1 minuto para terminar a fase.", PR.DELIVERY); }
+    if(G.timeLeft===30 && !G.alerted30){ G.alerted30=true; announce("Atenção. Faltam 30 segundos.", PR.DELIVERY); }
+    if(G.timeLeft===10 && !G.alerted10){ G.alerted10=true; announce("Atenção. Faltam 10 segundos.", PR.DELIVERY); }
+    if(G.timeLeft<=0){
+      G.timeLeft=0;
+      updateHUD();
+      clearInterval(G.timerHandle);
+      if(G.score>=PHASES[G.phase].minimumScore){
+        onPhaseWin();
+      } else {
+        onPhaseLose("time");
+      }
+    }
+  },1000);
+}
+
+function onPhaseLose(reason){
+  G.state="LOSE";
+  clearInterval(G.timerHandle);
+  SFX.lose();
+  hideAllOverlays();
+  showScreen("lose");
+  const lines = reason==="time"
+    ? ["Tempo esgotado.", "Você não atingiu a pontuação mínima.", "Ops, você errou, tente novamente."]
+    : ["Suas tentativas acabaram.", "Ops, você errou, tente novamente."];
+  lines.push("Pressione Enter para tentar novamente.");
+  announceSeq(lines, PR.RESULT);
+}
+$("btn-retry").addEventListener("click",()=>{ SFX.click(); startPhase(G.phase,true); });
+
+function onPhaseWin(){
+  G.state="PHASE_COMPLETE";
+  clearInterval(G.timerHandle);
+  SFX.win();
+  $("pc-score").textContent = "Ganhos da fase: $"+G.score+" (meta $"+PHASES[G.phase].minimumScore+")  •  Carteira: $"+G.money;
+  G.pendingMoneyForShop = G.money;
+  G.totalScore += G.score;
+  hideAllOverlays();
+  showScreen("phaseComplete");
+  if(G.phase>=PHASE_COUNT){
+    announceSeq(["Sua pontuação final foi de "+G.score+" pontos.", "Pressione Enter para continuar."], PR.RESULT);
+  } else {
+    announceSeq(["Parabéns você passou de fase!", "Sua pontuação foi de "+G.score+" pontos.", "Agora você irá para a loja de ingredientes.", "Pressione Enter para continuar."], PR.RESULT);
+  }
+}
+$("btn-pc-continue").addEventListener("click",()=>{
+  if(G.phase>=PHASE_COUNT){
+    SFX.gameComplete();
+    G.state="COMPLETE";
+    $("final-score").textContent = "Pontuação final: "+G.totalScore+" pontos";
+    hideAllOverlays();
+    showScreen("complete");
+    startVictory();
+    announceSeq(["Parabéns! Você completou todas as fases.", "Fim de jogo."], PR.RESULT);
+  } else {
+    SFX.click();
+    openShop(G.phase+1);
+  }
+});
+$("btn-play-again").addEventListener("click",()=>{
+  stopConfetti();
+  G.state="START";
+  SFX.click();
+  hideAllOverlays();
+  showScreen("start");
+});
+
+/* =========================================================
+   CONFETTI & FOGOS PIXEL ART (final screen)
+========================================================= */
+let confettiLoop = null;
+function stopConfetti(){
+  if(confettiLoop){
+    clearInterval(confettiLoop);
+    confettiLoop = null;
+  }
+  $("toast-layer").innerHTML = "";
+}
+function spawnConfettiBurst(count){
+  const layer = $("toast-layer");
+  const colors=["#d62828","#ffc93c","#2f9e44","#2b6fb3","#f4772e","#ffffff"];
+  for(let i=0;i<count;i++){
+    setTimeout(()=>{
+      if(G.state !== "COMPLETE") return;
+      const el=document.createElement("div");
+      const isCoin = Math.random() < 0.22;
+      el.style.position="absolute";
+      el.style.left=(20 + Math.random()*920)+"px";
+      el.style.top="-18px";
+      if(isCoin){
+        const c = mkCanvas(18,18);
+        const cg = c.getContext("2d");
+        cg.imageSmoothingEnabled = false;
+        cg.drawImage(COIN_CANVAS, 0, 0, 18, 18);
+        el.appendChild(c);
+      } else {
+        el.style.width=(6 + Math.floor(Math.random()*6))+"px";
+        el.style.height=(6 + Math.floor(Math.random()*6))+"px";
+        el.style.background=colors[Math.floor(Math.random()*colors.length)];
+        el.style.border="1px solid #1a0f08";
+      }
+      const dur = 2.0 + Math.random()*1.2;
+      el.style.transition=`top ${dur}s linear, transform ${dur}s linear`;
+      layer.appendChild(el);
+      requestAnimationFrame(()=>{
+        el.style.top = (580+Math.random()*40)+"px";
+        el.style.transform = `translateX(${(Math.random()-0.5)*120}px) rotate(${Math.random()*720}deg)`;
+      });
+      setTimeout(()=>el.remove(), dur*1000 + 150);
+    }, i*35);
+  }
+}
+function launchConfetti(){
+  stopConfetti();
+  spawnConfettiBurst(55);
+  confettiLoop = setInterval(()=>{
+    if(G.state !== "COMPLETE"){ stopConfetti(); return; }
+    spawnConfettiBurst(24);
+  }, 1500);
+}
+
+function itemLevel(it){ if(it.type==="emp") return G.emp.hired?1:0; return it.type==="up" ? G.up[it.id] : (G.unlocked.includes(it.id)?1:0); }
+function itemPrice(it){ return it.type==="up" ? it.price*(G.up[it.id]+1) : it.price; }
+function renderShop(){
+  $("shop-avail").textContent="$"+G.money;
+  const grid=$("shop-grid"); grid.innerHTML="";
+  SHOP.forEach(it=>{
+    const lv=itemLevel(it), max=it.type==="up"?it.max:1, owned=lv>=max, price=itemPrice(it);
+    const card=document.createElement("div"); card.className="shop-card"+(owned?" owned":"");
+    const tag=it.type==="ing"?"INGREDIENTE":(it.type==="drink"?"BEBIDA":it.type==="emp"?"FUNCIONÁRIO":"MELHORIA "+lv+"/"+max);
+    card.innerHTML="<div class='shop-tag'>"+tag+"</div><div class='se'>"+it.emoji+"</div><div class='sn'>"+it.name+"</div><div class='sd'>"+it.desc+"</div>";
+    const b=document.createElement("button"); b.className="btn"+(owned?" green":"");
+    if(it.type==="emp"){ b.textContent=owned?"Demitir":"Contratar $"+price; b.disabled=!owned&&G.money<price; if(owned) b.className="btn dark"; }
+    else { b.textContent=owned?(it.type==="up"?"✓ Máximo":"✓ Comprado"):"Comprar $"+price; b.disabled=owned||G.money<price; }
+    b.addEventListener("click",()=>buyItem(it));
+    card.appendChild(b); grid.appendChild(card);
+  });
+}
+function buyItem(it){
+  if(it.type==="emp" && G.emp.hired){ G.emp.hired=false; G.emp.acc=0; SFX.click(); announce("Ajudante demitido.",PR.RESULT); renderShop(); return; }
+  const price=itemPrice(it); if(G.money<price) return;
+  G.money-=price;
+  if(it.type==="emp"){ G.emp.hired=true; G.emp.acc=0; } else if(it.type==="up") G.up[it.id]++; else G.unlocked.push(it.id);
+  SFX.buy(); announce(it.name+" comprado. Restam "+G.money+" dólares.",PR.RESULT);
+  renderShop();
+}
+function openShop(nextPhase){
+  G.state="SHOP"; G.nextPhase=nextPhase;
+  hideAllOverlays();
+  $("shop-title").textContent="LOJA — PREPARE-SE PARA A FASE "+nextPhase;
+  $("btn-start-phase").textContent="Iniciar Fase "+nextPhase+" ▶";
+  renderShop();
+  announceSeq(["Loja. Você tem "+G.money+" dólares. Ingredientes, bebidas e melhorias são todos opcionais.","Pressione Iniciar Fase quando estiver pronto."],PR.ORDER);
+  showScreen("shop");
+}
+$("btn-start-phase").addEventListener("click",()=>{ SFX.click(); startPhase(G.nextPhase); });
+
+/* =========================================================
+/* =========================================================
+   KITCHEN
+========================================================= */
+let pizzaState = {};
+let preparedPizza = null; // Guarda a pizza montada para ser conferida na hora da entrega
+function clearPizza(){ pizzaState={}; ALL_KEYS.forEach(k=>pizzaState[k]=false); drawPizza(); }
+
+function buildIngredientButtons(){
+  const col=$("ing-col");
+  col.innerHTML="<h4 style='margin-top:0;color:var(--red-dark);'>INGREDIENTES</h4>";
+  const mk=(key)=>{
+    const info=ING_INFO[key];
+    const btn=document.createElement("button");
+    btn.className="ing-btn"+(info.drink?" drink":"");
+    btn.innerHTML="<span style='font-size:20px;'>"+info.emoji+"</span> "+info.label;
+    btn.addEventListener("click",()=>{
+      if(info.drink){
+        const was=pizzaState[key];
+        DRINK_KEYS.forEach(k=>pizzaState[k]=false);
+        col.querySelectorAll(".ing-btn.drink").forEach(b=>b.classList.remove("active-ing"));
+        if(!was){ pizzaState[key]=true; btn.classList.add("active-ing"); }
+        SFX.place(); drawPizza();
+        announce(was?"Bebida removida.":"Você adicionou "+info.label.toLowerCase()+".",PR.INGREDIENT);
+        return;
+      }
+      if(pizzaState[key]){ announce("Este ingrediente já foi adicionado.",PR.INGREDIENT); return; }
+      SFX.place(); pizzaState[key]=true; btn.classList.add("active-ing"); drawPizza();
+      const inOrder=!!(G.currentOrder && G.currentOrder[key]);
+      let msg="Você adicionou "+info.label.toLowerCase()+".";
+      if(G.currentOrder && !inOrder) msg+=" Atenção: este ingrediente não faz parte do pedido.";
+      announce(msg,PR.INGREDIENT);
+    });
+    col.appendChild(btn);
+  };
+  G.unlocked.filter(k=>!ING_INFO[k].drink).forEach(mk);
+  col.insertAdjacentHTML("beforeend","<h4 style='color:var(--blue);'>BEBIDAS</h4>");
+  G.unlocked.filter(k=>ING_INFO[k].drink).forEach(mk);
+}
+
+function drawPizza(){
+  pctx.clearRect(0,0,280,280);
+  pctx.imageSmoothingEnabled=false;
+  pctx.drawImage(makePizzaCanvas(pizzaState,84,true),0,0,280,280);
+  updateOrderChecklist();
+}
+
+function updateOrderChecklist(){
+  const box = $("order-checklist");
+  if(!G.currentOrder){ box.innerHTML="<p style='font-size:13px;color:#888;'>Nenhum pedido ativo.</p>"; return; }
+  box.innerHTML="";
+  Object.keys(G.currentOrder).forEach(key=>{
+    if(!G.unlocked.includes(key) && !G.currentOrder[key]) return;
+    const want = G.currentOrder[key];
+    if(!want && !G.unlocked.includes(key)) return;
+    const have = pizzaState[key];
+    const div = document.createElement("div");
+    const info = ING_INFO[key];
+    let cls = "order-check " + (want ? (have?"ok":"no") : (have?"no":"ok"));
+    let mark = want ? (have? "✓":"✗") : (have? "⚠":"—");
+    div.className = cls;
+    div.textContent = mark+" "+info.emoji+" "+info.label;
+    box.appendChild(div);
+  });
+}
+
+function enterKitchen(){
+  G.state="KITCHEN";
+  hud.style.display="none";
+  kitchenUI.classList.add("active");
+  clearPizza();
+  buildIngredientButtons();
+  updateOrderChecklist();
+
+  const ingList = G.unlocked.map(k=>ING_INFO[k].label.toLowerCase()).join(" e ");
+  announceSeq([
+    "Você chegou à cozinha. Agora você está na área de montagem da pizza.",
+    "O botão Voltar para Atendimento está na parte superior esquerda da tela.",
+    "Os ingredientes estão disponíveis no lado esquerdo da tela. Ingredientes disponíveis: "+ingList+".",
+    "Selecione os ingredientes necessários para preparar o pedido.",
+    "Os controles para limpar a pizza estão na parte inferior da bancada, junto do botão Pronto.",
+    "Memorize o pedido: "+spokenOrder(G.currentOrder)+". Pressione R a qualquer momento para ouvir o pedido novamente."
+  ], PR.ORDER);
+}
+
+function exitKitchen(carryingNow, alreadyAnnounced){
+  kitchenUI.classList.remove("active");
+  hud.style.display="flex";
+  G.state="PLAYING";
+  G.keys.up=G.keys.down=G.keys.left=G.keys.right=false;
+  player.x = kitchenDoorZone.x - 110;
+  player.y = kitchenDoorZone.y + 30;
+  player.dir = "left";
+  doorLocked = true;
+  if(alreadyAnnounced) return;
+  if(carryingNow){
+    announce("Você está carregando uma pizza. Caminhe até a mesa do cliente que fez o pedido.", PR.INTERACTION);
+  } else {
+    announce("Você voltou para a área de atendimento.", PR.INTERACTION);
+  }
+}
+let doorLocked = false;
+
+$("btn-back-service").addEventListener("click",()=>{
+  SFX.click();
+  announce("Voltando para a área de atendimento.", PR.INTERACTION);
+  exitKitchen(G.carryingPizza);
+});
+
+$("btn-descartar").addEventListener("click",()=>{
+  SFX.click();
+  clearPizza();
+  document.querySelectorAll(".ing-btn").forEach(b=>b.classList.remove("active-ing"));
+  announce("Pizza limpa. Você pode começar novamente.", PR.INGREDIENT);
+});
+
+$("btn-pronto").addEventListener("click",()=>{
+  if(!G.currentOrder){ showMessage("Nenhum pedido ativo! Volte e atenda um cliente.",1800); return; }
+  // Salva a pizza montada (mesmo que esteja errada) para ser conferida somente na entrega ao cliente
+  preparedPizza = Object.assign({}, pizzaState);
+  SFX.ready();
+  showMessage("Pizza pronta! Leve até a mesa do cliente.", 1300, true, null, "ok");
+  G.carryingPizza = true;
+  announceSeq(["Pizza pronta para entrega.", "Você está segurando a pizza.", "Agora leve a pizza até a mesa do cliente para entregar."], PR.RESULT);
+  exitKitchen(true, true);
+});
+
+/* =========================================================
+   INTERACTION (customer / kitchen door)
+========================================================= */
+function playerRect(){ return {x:player.x, y:player.y, w:player.w, h:player.h}; }
+
+// cliente sentado, esperando para fazer o pedido, cuja mesa está perto do jogador
+function nearCustomer(){
+  return CUST.list.find(c=>c.state==="waiting" && !c.emp && rectsOverlap(playerRect(), TABLE_ZONES[c.seat.ti])) || null;
+}
+// mesa do cliente que está esperando a pizza que o jogador está carregando
+function nearOrderTable(){
+  const c=CUST.orderCust();
+  return (c && rectsOverlap(playerRect(), TABLE_ZONES[c.seat.ti])) ? c : null;
+}
+// mesa com dinheiro pronto para pegar, perto do jogador (-1 = nenhuma)
+function nearMoneyTable(){
+  for(let i=0;i<TABLE_LIST.length;i++){
+    if(CUST.moneyReady(i) && rectsOverlap(playerRect(), TABLE_ZONES[i])) return i;
+  }
+  return -1;
+}
+function nearKitchenDoor(){
+  return rectsOverlap(playerRect(), kitchenDoorZone);
+}
+
+function tryInteract(){
+  if(G.state!=="PLAYING") return;
+  const c=nearCustomer();
+  if(!c) return;
+  if(G.currentOrder || G.carryingPizza){
+    showMessage("Termine o pedido atual antes de atender outro cliente.", 1600);
+    return;
+  }
+  G.currentOrder = generateOrder();
+  CUST.takeOrder(c, G.currentOrder); c.pay=calcPay(G.currentOrder);
+  SFX.order();
+  showOrderBanner();
+  announceSeq([
+    "Pedido recebido.",
+    "O cliente da "+TABLE_NAMES[c.seat.ti]+" pediu uma pizza com "+spokenOrder(G.currentOrder)+".",
+    "Memorize o pedido. Você deverá preparar exatamente esses ingredientes. Pressione R a qualquer momento para ouvir o pedido novamente.",
+    "Agora vá até a cozinha. A entrada fica no canto inferior direito da tela."
+  ], PR.ORDER);
+}
+function spokenOrder(order){
+  const parts=[];
+  Object.keys(order).forEach(k=>{ if(order[k]) parts.push(ING_INFO[k].label.toLowerCase()); });
+  return parts.join(" e ");
+}
+
+function togglePause(){
+  if(G.state!=="PLAYING" && G.state!=="KITCHEN") return;
+  G.paused = !G.paused;
+  $("pause-overlay").classList.toggle("show", G.paused);
+  if(G.paused){
+    G.keys.up=G.keys.down=G.keys.left=G.keys.right=false;
+  }
+}
+
+function tableCenter(ti){ const t=TABLE_LIST[ti]; return {cx:t.x+TABLE_W/2, cy:t.y+TABLE_H/2}; }
+function currentGuidanceTarget(){
+  if(G.carryingPizza){
+    const oc=CUST.orderCust();
+    if(oc){
+      const ti=oc.seat.ti, tc=tableCenter(ti);
+      return { name:"cliente da "+TABLE_NAMES[ti], cx:tc.cx, cy:tc.cy,
+        arrival:"Você chegou perto da "+TABLE_NAMES[ti]+". A entrega acontece automaticamente." };
+    }
+  }
+  if(G.currentOrder){
+    return { name:"entrada da cozinha", cx:kitchenDoorZone.x+kitchenDoorZone.w/2, cy:kitchenDoorZone.y+kitchenDoorZone.h/2,
+      arrival:"Você chegou na entrada da cozinha." };
+  }
+  // sem pedido em andamento: o alvo é a mesa mais próxima com cliente esperando ou com dinheiro
+  const pcx=player.x+player.w/2, pcy=player.y+player.h/2;
+  let best=null, bd=1e9;
+  const consider=(ti,kind)=>{
+    const tc=tableCenter(ti), d=Math.hypot(tc.cx-pcx,tc.cy-pcy);
+    if(d<bd){ bd=d; best={ti:ti,kind:kind,tc:tc}; }
+  };
+  CUST.list.forEach(c=>{ if(c.state==="waiting") consider(c.seat.ti,"order"); });
+  CUST.tables.forEach((s,ti)=>{ if(CUST.moneyReady(ti)) consider(ti,"money"); });
+  if(best){
+    return best.kind==="order"
+      ? { name:"cliente da "+TABLE_NAMES[best.ti], cx:best.tc.cx, cy:best.tc.cy,
+          arrival:"Você está perto da "+TABLE_NAMES[best.ti]+". Pressione E para atender o cliente." }
+      : { name:"dinheiro na "+TABLE_NAMES[best.ti], cx:best.tc.cx, cy:best.tc.cy,
+          arrival:"Você está perto do dinheiro da "+TABLE_NAMES[best.ti]+". Ele é recolhido automaticamente." };
+  }
+  return { idle:true, name:"", cx:0, cy:0,
+    arrival:"Aguarde. Um cliente está entrando para sentar em uma mesa vazia." };
+}
+function directionPhrase(dx,dy){
+  const t=14, parts=[];
+  if(dy<-t) parts.push("para cima"); else if(dy>t) parts.push("para baixo");
+  if(dx<-t) parts.push("para a esquerda"); else if(dx>t) parts.push("para a direita");
+  return parts;
+}
+function narratorGuidanceTick(){
+  if(!G.a11y.narrator) return;
+  if(G.state!=="PLAYING" || G.paused) return;
+  const target = currentGuidanceTarget();
+  if(target.idle){ announce(target.arrival, PR.GUIDANCE, true); return; }
+  const pcx = player.x+player.w/2, pcy = player.y+player.h/2;
+  const dirs = directionPhrase(target.cx-pcx, target.cy-pcy);
+  const text = dirs.length===0 ? target.arrival : ("Objetivo: "+target.name+". Ande "+dirs.join(" e ")+".");
+  announce(text, PR.GUIDANCE, true);
+}
+setInterval(narratorGuidanceTick, 7000);
+
+function showOrderBanner(){
+  const b = $("banner");
+  b.innerHTML = "Faça o seguinte pedido:<div class='order-line'>"+orderLabel(G.currentOrder)+"</div>";
+  b.classList.add("show");
+}
+function hideOrderBanner(){ $("banner").classList.remove("show"); }
+
+/* =========================================================
+   MAIN LOOP
+========================================================= */
+let walkFrame=0;
+let stepSoundCooldown=0;
+function updatePlayer(){
+  if(G.state!=="PLAYING") return;
+  if(G.paused) return;
+  let dx=0, dy=0;
+  if(G.keys.up) dy-=player.speed;
+  if(G.keys.down) dy+=player.speed;
+  if(G.keys.left){ dx-=player.speed; player.dir="left"; }
+  if(G.keys.right){ dx+=player.speed; player.dir="right"; }
+  if(dy<0) player.dir="up"; else if(dy>0 && dx===0) player.dir="down";
+  player.walking = (dx!==0||dy!==0);
+  if(player.walking){
+    walkFrame+=0.25;
+    if(stepSoundCooldown<=0){
+      SFX.step();
+      stepSoundCooldown = 14;
+    } else {
+      stepSoundCooldown--;
+    }
+  } else {
+    walkFrame=0;
+    stepSoundCooldown=0;
+  }
+
+  const tryX = {x:player.x+dx, y:player.y, w:player.w, h:player.h};
+  const tryY = {x:player.x, y:player.y+dy, w:player.w, h:player.h};
+  const bounds = {minX:0,maxX:WORLD.w-player.w,minY:150,maxY:WORLD.h-player.h};
+
+  let blockedX=false, blockedY=false;
+  serviceObstacles.forEach(o=>{ if(rectsOverlap(tryX,o)) blockedX=true; });
+  serviceObstacles.forEach(o=>{ if(rectsOverlap(tryY,o)) blockedY=true; });
+
+  if(!blockedX) player.x = Math.min(Math.max(tryX.x,bounds.minX),bounds.maxX);
+  if(!blockedY) player.y = Math.min(Math.max(tryY.y,bounds.minY),bounds.maxY);
+
+  const hint = $("interact-hint");
+  const nearC = nearCustomer();
+  if(nearC && !G.currentOrder && !G.carryingPizza){
+    hint.style.display="block";
+    hint.style.left = (Math.min(Math.max(nearC.x-55,6),960-130)/960*100)+"%";
+    hint.style.top = ((nearC.y-138)/600*100)+"%";
+    $("btn-e").classList.add("show");
+  } else {
+    hint.style.display="none";
+    $("btn-e").classList.remove("show");
+  }
+
+  const moneyTi = nearMoneyTable();
+  if(moneyTi>=0) collectMoney(moneyTi);
+
+  if(doorLocked && !nearKitchenDoor()) doorLocked = false;
+
+  if(nearKitchenDoor() && !doorLocked && !G.carryingPizza){
+    if(G.currentOrder){
+      enterKitchen();
+      return;
+    } else {
+      showMessage("Atenda um cliente antes de ir para a cozinha.", 1400);
+      doorLocked = true;
+    }
+  }
+
+  if(G.carryingPizza && nearOrderTable()){
+    deliverPizza();
+  }
+}
+
+function deliverPizza(){
+  const order = G.currentOrder;
+  const delivered = preparedPizza || pizzaState;
+  const cust = CUST.orderCust();
+  const ti = cust ? cust.seat.ti : 0, tb = TABLE_LIST[ti];
+  let correct = true;
+  if(order){
+    Object.keys(order).forEach(key=>{
+      if(!!order[key] !== !!delivered[key]) correct = false;
+    });
+  }
+
+  G.carryingPizza = false;
+  preparedPizza = null;
+  clearPizza();
+
+  if(correct){
+    // A pizza certa chegou na mesa: o cliente come e depois deixa o dinheiro (pontos só quando você pegar)
+    G.currentOrder = null;
+    hideOrderBanner();
+    SFX.deliverSuccess();
+    CUST.onDelivered(order);
+    showMessage("Pedido certo! O cliente vai comer.", 1600, true, null, "ok");
+    announceSeq([
+      "Você chegou à "+TABLE_NAMES[ti]+".",
+      "Pedido correto entregue!",
+      "O cliente vai comer e deixar o dinheiro na mesa. Quando ele terminar, passe perto da mesa para pegar o dinheiro.",
+      "Enquanto isso, você pode atender outro cliente sentado."
+    ], PR.DELIVERY);
+    satisfiedTimer = 40;
+  } else {
+    // Pedido errado: perde tentativa na hora da entrega e o mesmo pedido continua ativo para refazer
+    SFX.deliverWrong();
+    CUST.onWrong();
+    G.attempts--;
+    updateHUD();
+    toast("Pedido errado!", tb.x - 6, tb.y - 20, "#ff6b6b", false);
+    showMessage("Ops, pedido errado! Volte à cozinha e refaça.", 2000, true, null, "err");
+    const lines = [
+      "Ops, você entregou o pedido errado!",
+      "Uma tentativa foi perdida.",
+      "Volte para a cozinha e prepare o pedido corretamente: " + spokenOrder(order) + "."
+    ];
+    if(G.attempts <= 0){
+      lines.push("Suas tentativas acabaram.");
+    } else if(G.attempts === 1){
+      lines.push("Atenção. Você tem apenas uma tentativa restante.");
+    } else {
+      lines.push("Restam " + G.attempts + " tentativas.");
+    }
+    announceSeq(lines, PR.RESULT);
+    if(G.attempts <= 0){
+      G.currentOrder = null;
+      hideOrderBanner();
+      setTimeout(()=>onPhaseLose("attempts"), 650);
+    }
+  }
+}
+
+/* pega o dinheiro que o cliente deixou na mesa: é aqui que a pontuação e o dinheiro sobem */
+function collectMoney(ti){
+  const amt = CUST.collect(ti);
+  if(!amt) return;
+  const tb = TABLE_LIST[ti], min=PHASES[G.phase].minimumScore;
+  const had = G.score>=min;
+  G.score += amt; G.money += amt; G.ordersDelivered++;
+  updateHUD();
+  SFX.coin();
+  toast("+$"+amt, tb.x+8, tb.y-18, "#ffd43b", true);
+  const reached = !had && G.score>=min;
+  showMessage(reached?"META BATIDA! Continue ganhando para gastar na loja!":"Dinheiro recolhido! +$"+amt, reached?2400:1400, true, null, "ok");
+  const lines = ["Você pegou o dinheiro da "+TABLE_NAMES[ti]+".", "Você ganhou "+amt+" dólares.", "Ganhos da fase: "+G.score+"."];
+  if(reached) lines.push("Você atingiu a meta! Continue até o tempo acabar para ganhar mais dinheiro para a loja.");
+  announceSeq(lines, PR.DELIVERY);
+}
+
+let satisfiedTimer=0;
+
+function gameLoop(){
+  requestAnimationFrame(gameLoop);
+  dinerAnimTick++;
+  if(G.state==="PLAYING"){
+    updatePlayer();
+    if(G.state==="PLAYING" && !G.paused){ CUST.update(); EMP.update(); }
+    ctx.clearRect(0,0,WORLD.w,WORLD.h);
+    drawScene();
+    if(satisfiedTimer>0) satisfiedTimer--;
+  }
+}
+requestAnimationFrame(gameLoop);
+
+/* =========================================================
+   ANIMAÇÕES: abertura (tela inicial + seleção) e vitória final
+   Loop único de UI: só desenha quando a tela correspondente está ativa.
+========================================================= */
+function uiRnd(a,b){ return a+Math.random()*(b-a); }
+function uiClamp(v){ return v<0?0:(v>1?1:v); }
+function uiEaseOut(p){ return 1-Math.pow(1-p,3); }
+function uiBounce(p){
+  const n=7.5625,d=2.75;
+  if(p<1/d) return n*p*p;
+  if(p<2/d){ p-=1.5/d; return n*p*p+.75; }
+  if(p<2.5/d){ p-=2.25/d; return n*p*p+.9375; }
+  p-=2.625/d; return n*p*p+.984375;
+}
+function uiHash(a,b){
+  let h=(a*374761393+b*668265263)|0;
+  h=(h^(h>>>13))*1274126177|0;
+  return ((h^(h>>>16))>>>0)/4294967295;
+}
+function uiSparkle(g,x,y,u,col){
+  g.fillStyle=col;
+  g.fillRect(x-u,y-u*3,u*2,u*6);
+  g.fillRect(x-u*3,y-u,u*6,u*2);
+  g.fillStyle="#ffffff";
+  g.fillRect(x-u,y-u,u*2,u*2);
+}
+
+/* ---------- letras do título "Pizza Club" ondulando ---------- */
+try{
+  const h=document.querySelector("#screen-start h1.title");
+  if(h){
+    let n=0;
+    const wrap=(node)=>{
+      Array.from(node.childNodes).forEach(ch=>{
+        if(ch.nodeType===3){
+          const frag=document.createDocumentFragment();
+          Array.from(ch.textContent).forEach(c=>{
+            if(c===" "){ frag.appendChild(document.createTextNode(" ")); return; }
+            const sp=document.createElement("span");
+            sp.className="ltr"; sp.textContent=c;
+            sp.style.animationDelay=(n++*0.09)+"s";
+            frag.appendChild(sp);
+          });
+          node.replaceChild(frag,ch);
+        } else if(ch.nodeType===1){ wrap(ch); }
+      });
+    };
+    wrap(h);
+  }
+}catch(e){}
+
+/* ---------- TELA INICIAL: ingredientes caindo + funcionários andando ---------- */
+const startCv=$("start-anim");
+const startG=startCv.getContext("2d");
+const SA={items:[],walkers:[],ready:false,last:0};
+function initStartAnim(){
+  SA.items=[];
+  for(let i=0;i<18;i++){
+    SA.items.push({
+      kind:i%4, x:uiRnd(20,940), y:uiRnd(-40,600), vy:uiRnd(.35,.9),
+      sway:uiRnd(4,16), ph:uiRnd(0,6.28), s:(i%8===0)?56:40, u:Math.random()<.5?3:4
+    });
+  }
+  SA.walkers=[
+    {type:"male",   x:140,  dir:"right", speed:1.5, lane:510, carry:true,  off:0},
+    {type:"female", x:820,  dir:"left",  speed:1.2, lane:532, carry:false, off:2}
+  ];
+  SA.ready=true;
+}
+function drawStartAnim(now){
+  const g=startG;
+  const dt=Math.min(50,now-(SA.last||now))/16.67; SA.last=now;
+  g.clearRect(0,0,960,600);
+  g.imageSmoothingEnabled=false;
+  SA.items.forEach(it=>{
+    it.y+=it.vy*dt; it.ph+=0.02*dt;
+    if(it.y>620){ it.y=-40; it.x=uiRnd(20,940); }
+    const x=Math.round(it.x+Math.sin(it.ph)*it.sway), y=Math.round(it.y);
+    if(it.kind===0){
+      g.save(); g.translate(x,y); g.rotate(it.ph*0.7);
+      g.drawImage(PIZZA_FULL,-it.s/2,-it.s/2,it.s,it.s);
+      g.restore();
+    } else if(it.kind===1){
+      uiSparkle(g,x,y,it.u,(Math.floor(now/220+it.ph*5)%2)?"#ffd34a":"#fff2a8");
+    } else if(it.kind===2){
+      // calabresa
+      for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++){
+        const d=dx*dx+dy*dy; if(d>6) continue;
+        g.fillStyle = d>3 ? "#4a1410" : "#b8322c";
+        g.fillRect(x+dx*4,y+dy*4,4,4);
+      }
+    } else {
+      // azeitona
+      g.fillStyle="#34361a"; g.fillRect(x-8,y-4,16,12);
+      g.fillStyle="#b9bc4a"; g.fillRect(x-4,y,8,4);
+    }
+  });
+  SA.walkers.forEach(w=>{
+    w.x+=w.speed*(w.dir==="right"?1:-1)*dt;
+    if(w.x>1040) w.dir="left";
+    if(w.x<-80) w.dir="right";
+  });
+  SA.walkers.slice().sort((a,b)=>a.lane-b.lane).forEach(w=>{
+    drawChibiSprite(g,w.x,w.lane,4,w.type,w.dir,now/170+1+w.off,w.carry);
+  });
+}
+
+/* ---------- SELEÇÃO: o personagem sob o mouse pula e comemora ---------- */
+function drawCharCards(now){
+  [["card-male","male"],["card-female","female"]].forEach((pair,i)=>{
+    const card=$(pair[0]);
+    const cv=card.querySelector("canvas");
+    if(!cv) return;
+    const c=cv.getContext("2d");
+    c.imageSmoothingEnabled=false;
+    c.clearRect(0,0,cv.width,cv.height);
+    const active=card.matches(":hover") || card.classList.contains("selected");
+    const jump=active ? Math.abs(Math.sin(now/170+i))*9 : 0;
+    const idleBob=active ? 0 : (Math.floor(now/450+i)%2);
+    const gy=cv.height*0.86;
+    // sombra no chão (encolhe quando o personagem sobe)
+    c.fillStyle="rgba(26,15,8,0.35)";
+    const sw=Math.round(76-jump*2);
+    c.fillRect(Math.round(cv.width/2-sw/2),Math.round(gy-4),sw,8);
+    drawChibiSprite(c,cv.width/2,gy-jump-idleBob,5.2,pair[1],"down",active?now/130+1:0,false,{cheer:active,noShadow:true});
+  });
+}
+
+/* ---------- VITÓRIA: cena em pixel art (inspirada em "YOU WIN!" / "VICTORY ACHIEVED") ---------- */
+const FONT5={
+  "A":[".###.","#...#","#...#","#####","#...#","#...#","#...#"],
+  "I":["#####","..#..","..#..","..#..","..#..","..#..","#####"],
+  "O":[".###.","#...#","#...#","#...#","#...#","#...#",".###."],
+  "R":["####.","#...#","#...#","####.","#.#..","#..#.","#...#"],
+  "T":["#####","..#..","..#..","..#..","..#..","..#..","..#.."],
+  "V":["#...#","#...#","#...#","#...#","#...#",".#.#.","..#.."],
+  "!":["..#..","..#..","..#..","..#..","..#..",".....","..#.."],
+  "Ó":["...#.",".###.","#...#","#...#","#...#","#...#","#...#",".###."]
+};
+function uiPixText(g,str,cx,y,u,face,shadow,outline){
+  const gw=6, total=str.length*gw-1, x0=Math.round(cx-total*u/2);
+  const paint=(ox,oy,col)=>{
+    g.fillStyle=col;
+    for(let i=0;i<str.length;i++){
+      let rows=FONT5[str[i]]; if(!rows) continue;
+      if(rows.length===7) rows=[".....",...rows];
+      for(let r=0;r<8;r++) for(let c=0;c<5;c++){
+        if(rows[r][c]==="#") g.fillRect(x0+(i*gw+c)*u+ox,y+r*u+oy,u,u);
+      }
+    }
+  };
+  const o=Math.max(2,u>>1);
+  paint(u,u,shadow);
+  [[-o,-o],[0,-o],[o,-o],[-o,0],[o,0],[-o,o],[0,o],[o,o]].forEach(d=>paint(d[0],d[1],outline));
+  paint(0,0,face);
+}
+function uiGrassBlock(g,x,y,w,h){
+  const cell=8;
+  for(let cy=y+24;cy<y+h;cy+=cell){
+    for(let cx=x;cx<x+w;cx+=cell){
+      const r=uiHash((cx/cell)|0,(cy/cell)|0);
+      g.fillStyle= r<.16 ? "#7a3a24" : (r<.42 ? "#55291d" : "#3b2018");
+      g.fillRect(cx,cy,Math.min(cell,x+w-cx),Math.min(cell,y+h-cy));
+    }
+  }
+  if(h>=100){ g.fillStyle="#1a1530"; g.fillRect(x+16,y+56,w-32,h-56); }
+  for(let cx=x;cx<x+w;cx+=cell){
+    const r=uiHash((cx/cell)|0,((y/cell)|0)+7), r2=uiHash((cx/cell)|0,((y/cell)|0)+19);
+    g.fillStyle="#3fae4a"; g.fillRect(cx,y,Math.min(cell,x+w-cx),16);
+    g.fillStyle="#6fd05a"; g.fillRect(cx,y,Math.min(cell,x+w-cx),4);
+    if(r<.45){ g.fillStyle="#a6e05a"; g.fillRect(cx+((r2*5)|0)*1,y+4+((r*6)|0)*1,4,4); }
+    if(r2<.3){ g.fillStyle="#2f9a46"; g.fillRect(cx+2,y+10,4,4); }
+    g.fillStyle="#2b8a74"; g.fillRect(cx,y+16,Math.min(cell,x+w-cx),8);
+    if(r2>.55){ g.fillStyle="#3aa08a"; g.fillRect(cx+2,y+18,4,4); }
+  }
+}
+function uiTrophy(g,cx,top,U){
+  const x0=cx-9*U;
+  const T=(x,y,w,h,c)=>{ g.fillStyle=c; g.fillRect(x0+x*U,top+y*U,w*U,h*U); };
+  const K="#1a0f08", Y="#ffc61a", L="#ffe27a", D="#e0980c";
+  // alças
+  T(0,2,4,5,K); T(1,3,2,3,Y);
+  T(14,2,4,5,K); T(15,3,2,3,Y);
+  // taça (contorno + miolo)
+  T(2,0,14,1,K);
+  T(2,1,1,4,K); T(15,1,1,4,K);
+  T(3,1,12,4,Y); T(3,1,2,4,L); T(13,1,2,4,D);
+  T(3,5,1,2,K); T(14,5,1,2,K);
+  T(4,5,10,2,Y); T(4,5,2,2,L); T(12,5,2,2,D);
+  T(4,7,1,2,K); T(13,7,1,2,K);
+  T(5,7,8,2,Y); T(5,7,2,2,L); T(11,7,2,2,D);
+  T(5,9,8,1,K);
+  T(6,9,6,1,D);
+  T(5,10,8,1,K);
+  // brilho
+  T(5,2,1,3,"#ffffff");
+  // haste
+  T(7,10,4,4,K); T(8,10,2,4,Y); T(8,10,1,4,L);
+  // base
+  T(4,14,10,5,K); T(5,14,8,2,D); T(5,14,8,1,L); T(5,16,8,1,"#e8508a"); T(5,17,8,1,"#1fa8d4");
+}
+const VIC={t0:0,last:0,conf:[],fw:[],nextFw:0,stars:[]};
+const VIC_COLS=["#e8343a","#ffd34a","#58c868","#1fa8d4","#e8508a","#ffffff","#f0a030"];
+const vicCv=$("victory-canvas");
+const vg=vicCv.getContext("2d");
+for(let i=0;i<70;i++) VIC.stars.push({x:uiRnd(18,940),y:uiRnd(18,300),s:Math.random()<.3?4:2,ph:uiRnd(0,6.28)});
+function newConfetti(initial){
+  return {x:uiRnd(0,960),y:initial?uiRnd(-600,0):uiRnd(-40,-5),vx:uiRnd(-.6,.6),vy:uiRnd(1.2,3.2),
+          s:Math.random()<.5?6:8,col:VIC_COLS[(Math.random()*VIC_COLS.length)|0],ph:uiRnd(0,6.28)};
+}
+function startVictory(){
+  VIC.t0=performance.now(); VIC.last=0; VIC.nextFw=700; VIC.fw=[]; VIC.conf=[];
+  for(let i=0;i<110;i++) VIC.conf.push(newConfetti(true));
+}
+function vicBurst(){
+  const x=uiRnd(150,810), y=uiRnd(80,260), col=VIC_COLS[(Math.random()*VIC_COLS.length)|0], N=26;
+  for(let i=0;i<N;i++){
+    const a=i/N*Math.PI*2, sp=uiRnd(1.6,3.4);
+    VIC.fw.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:70,col:col});
+  }
+}
+function drawVictory(now){
+  const t=Math.max(0,now-VIC.t0);
+  const dt=Math.min(50,now-(VIC.last||now))/16.67; VIC.last=now;
+  const g=vg;
+  g.imageSmoothingEnabled=false;
+  g.globalAlpha=1;
+  g.fillStyle="#171332"; g.fillRect(0,0,960,600);
+  // estrelas
+  VIC.stars.forEach(s=>{
+    g.globalAlpha=.35+.65*Math.abs(Math.sin(t/600+s.ph));
+    g.fillStyle="#ffffff"; g.fillRect(s.x,s.y,s.s,s.s);
+  });
+  g.globalAlpha=1;
+  // fogos de artifício
+  if(t>VIC.nextFw){ vicBurst(); VIC.nextFw=t+uiRnd(500,1100); }
+  VIC.fw=VIC.fw.filter(p=>p.life>0);
+  VIC.fw.forEach(p=>{
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=0.05*dt; p.life-=dt;
+    g.globalAlpha=Math.max(0,p.life/70);
+    g.fillStyle=p.col; g.fillRect(Math.round(p.x),Math.round(p.y),4,4);
+  });
+  g.globalAlpha=1;
+  // plataformas de grama (sobem da base)
+  const offG=(1-uiEaseOut(uiClamp(t/800)))*220;
+  const offB=(1-uiEaseOut(uiClamp((t-150)/800)))*220;
+  const offA=(1-uiEaseOut(uiClamp((t-300)/800)))*220;
+  uiGrassBlock(g,360,Math.round(330+offA),240,70);
+  uiGrassBlock(g,248,Math.round(390+offB),464,70);
+  uiGrassBlock(g,0,Math.round(450+offG),960,150);
+  // pizza girando no degrau B
+  if(t>900){
+    const bob=Math.sin(t/300)*4;
+    g.drawImage(PIZZA_FULL,316,Math.round(390+offB-70+bob),64,64);
+  }
+  // funcionário(a) escolhido(a) no topo: cai, aterrissa e pula comemorando
+  if(t>700){
+    const fall=-(1-uiBounce(uiClamp((t-700)/900)))*280;
+    const jumping=t>1600;
+    const j=jumping ? Math.abs(Math.sin((t-1600)/300))*30 : 0;
+    const gy=Math.round(330+offA+fall-j);
+    const sw=Math.round(64-j*0.8);
+    g.fillStyle="rgba(0,0,0,.35)";
+    g.fillRect(480-(sw>>1),Math.round(330+offA)-4,sw,8);
+    drawChibiSprite(g,480,gy,6,G.character,"down",jumping?t/130+1:0,false,{cheer:t>1500,noShadow:true});
+  }
+  // companheiro(a) no degrau B
+  if(t>1000){
+    const other=G.character==="male"?"female":"male";
+    const fall=-(1-uiBounce(uiClamp((t-1000)/800)))*220;
+    const jumping=t>1800;
+    const j=jumping ? Math.abs(Math.sin((t-1800)/300+1.4))*24 : 0;
+    const gy=Math.round(390+offB+fall-j);
+    const sw=Math.round(52-j*0.8);
+    g.fillStyle="rgba(0,0,0,.35)";
+    g.fillRect(650-(sw>>1),Math.round(390+offB)-4,sw,8);
+    drawChibiSprite(g,650,gy,5,other,"down",jumping?t/140+3:0,false,{cheer:t>1700,noShadow:true});
+  }
+  // troféu flutuando
+  if(t>1300){
+    const rise=(1-uiEaseOut(uiClamp((t-1300)/900)))*200;
+    const ty=Math.round(94+rise+Math.sin(t/380)*5);
+    uiTrophy(g,480,ty,5);
+    const on=(i)=>Math.sin(t/260+i*2.1)>-0.2;
+    if(on(0)) uiSparkle(g,410,ty+22,3,"#ffd34a");
+    if(on(1)) uiSparkle(g,556,ty+60,3,"#ffffff");
+    if(on(2)) uiSparkle(g,420,ty+84,2,"#ffe27a");
+    if(on(3)) uiSparkle(g,548,ty+14,2,"#ffd34a");
+  }
+  // título
+  {
+    const drop=(1-uiBounce(uiClamp(t/900)))*-130;
+    const face=(Math.floor(t/450)%2)?"#a7e83e":"#8fd12f";
+    uiPixText(g,"VITÓRIA!",480,Math.round(22+drop),8,face,"#e8508a","#10091f");
+  }
+  // confete (na frente de tudo)
+  VIC.conf.forEach((c,i)=>{
+    c.y+=c.vy*dt; c.x+=c.vx*dt+Math.sin(t/300+c.ph)*0.4;
+    if(c.y>610){ VIC.conf[i]=newConfetti(false); return; }
+    g.fillStyle=c.col;
+    const w=(Math.floor(t/150+c.ph)%2)?c.s:(c.s>>1);
+    g.fillRect(Math.round(c.x),Math.round(c.y),w,c.s);
+  });
+  // moldura neon azul/rosa/verde
+  g.fillStyle="#1fa8d4";
+  g.fillRect(10,10,940,6); g.fillRect(10,584,940,6); g.fillRect(10,10,6,580); g.fillRect(944,10,6,580);
+  g.fillStyle="#7fc12a";
+  g.fillRect(22,22,916,2); g.fillRect(22,576,916,2); g.fillRect(22,22,2,556); g.fillRect(936,22,2,556);
+  g.fillStyle="#e8508a";
+  [[10,10],[938,10],[10,578],[938,578]].forEach(c=>g.fillRect(c[0],c[1],12,12));
+}
+
+/* ---------- loop único das animações de interface ---------- */
+function uiLoop(now){
+  requestAnimationFrame(uiLoop);
+  if(G.state==="START"){
+    if(!SA.ready) initStartAnim();
+    drawStartAnim(now);
+  } else if(G.state==="CHAR_SELECT"){
+    SA.last=0;
+    drawCharCards(now);
+  } else if(G.state==="COMPLETE"){
+    drawVictory(now);
+  } else {
+    SA.last=0;
+  }
+}
+requestAnimationFrame(uiLoop);
+
+/* =========================================================
+   AUDIO TOGGLE
+========================================================= */
+$("audio-toggle").addEventListener("click",()=>{
+  G.soundOn = !G.soundOn;
+  $("audio-toggle").textContent = (G.soundOn ? "🔊 Som: ON" : "🔇 Som: OFF");
+  if(G.soundOn && G.state !== "COMPLETE"){
+    ensureAudio();
+  } else {
+    stopBGM();
+  }
+});
+
+/* =========================================================
+   CONFETTI (final screen)
+========================================================= */
+function launchConfetti(){
+  const layer = $("toast-layer");
+  const colors=["#d62828","#ffc93c","#2f9e44","#2b6fb3","#f4772e"];
+  for(let i=0;i<50;i++){
+    setTimeout(()=>{
+      const el=document.createElement("div");
+      el.style.position="absolute";
+      el.style.left=(Math.random()*960)+"px";
+      el.style.top="-10px";
+      el.style.width="8px"; el.style.height="8px";
+      el.style.background=colors[Math.floor(Math.random()*colors.length)];
+      el.style.transition="top 2.2s linear, transform 2.2s linear";
+      layer.appendChild(el);
+      requestAnimationFrame(()=>{
+        el.style.top = (560+Math.random()*40)+"px";
+        el.style.transform = "rotate("+(Math.random()*720)+"deg)";
+      });
+      setTimeout(()=>el.remove(),2400);
+    }, i*40);
+  }
+}
+
+// Inicia a música ambiente assim que o usuário interagir pela primeira vez (requisito dos navegadores)
+["pointerdown","keydown","touchstart"].forEach(evt=>{
+  window.addEventListener(evt, ()=>ensureAudio(), { once:true, passive:true });
+});
+
+clearPizza();
+
+})();
+</script>
+</body>
+</html>
